@@ -1,6 +1,6 @@
 Metadata-Version: 1.0
 Name: jsonstore
-Version: 0.1.1dev
+Version: 0.1.1
 Summary: A RESTful Atom store using a JSON representation.
 Home-page: http://dealmeida.net/projects/jsonstore
 Author: Roberto De Almeida
