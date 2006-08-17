@@ -7,8 +7,7 @@ setup(name='jsonstore',
       version=version,
       description="A RESTful Atom store using a JSON representation.",
       long_description="""\
-This package contains a WSGI app implementing an Atom store accessible through a JSON syntax.
-""",
+This package contains a WSGI app implementing an Atom store accessible through a JSON syntax.""",
       classifiers=[], # Get strings from http://www.python.org/pypi?%3Aaction=list_classifiers
       keywords='',
       author='Roberto De Almeida',
