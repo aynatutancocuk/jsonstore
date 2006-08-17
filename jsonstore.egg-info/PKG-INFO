@@ -7,5 +7,4 @@ Author: Roberto De Almeida
 Author-email: roberto@dealmeida.net
 License: MIT
 Description: This package contains a WSGI app implementing an Atom store accessible through a JSON syntax.
-        
 Platform: UNKNOWN
