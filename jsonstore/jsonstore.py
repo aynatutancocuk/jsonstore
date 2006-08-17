@@ -125,7 +125,7 @@ class JSONStore(object):
         entry = simplejson.dumps(entry, cls=DateTimeAwareJSONEncoder)
         entry = entry.encode('utf-8')
 
-        headers = [('Content-Type', 'application/jsonrequest'),
+        headers = [('Content-Type', 'application/json'),
                    ('Content-Encoding', 'utf-8'),
                    ('Location', location) ]
         self.start('201 Created', headers)
