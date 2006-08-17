@@ -1,0 +1,11 @@
+Metadata-Version: 1.0
+Name: jsonstore
+Version: 0.1.1
+Summary: A RESTful Atom store using a JSON representation.
+Home-page: http://dealmeida.net/projects/jsonstore
+Author: Roberto De Almeida
+Author-email: roberto@dealmeida.net
+License: MIT
+Description: This package contains a WSGI app implementing an Atom store accessible through a JSON syntax.
+        
+Platform: UNKNOWN
