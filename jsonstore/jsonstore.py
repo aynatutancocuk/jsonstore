@@ -55,7 +55,7 @@ class JSONStore(object):
         method = getattr(self, '_%s' % req_method)
 
         path_info = environ.get('PATH_INFO', '/')
-        m = re.match('/(?P<id>\d+)?', path_info)
+        m = re.match('/(?P<id>.+)?', path_info)
         if m: return method(**m.groupdict())
 
         # Raise 404.
