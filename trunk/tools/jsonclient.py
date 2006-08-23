@@ -3,10 +3,9 @@ Client for jsonstore.
 
 Quick howto::
 
-    $ jsonclient.py POST http://example.com/ entry.rfc822
-    $ jsonclient GET http://example.com/0
-    $ jsonclient DELETE http://example.com/0
-    $ jsonclient PUT http://example.com/ entry.rfc822
+    $ jsonclient.py --view http://example.com/0
+    $ jsonclient.py --edit http://example.com/ [entry.rfc822]
+    $ jsonclient.py --delete http://example.com/0
 """
 import sys
 import email
@@ -16,10 +15,12 @@ import httplib2
 import simplejson
 
 
-def post(store, filename):
-    inp = open(filename)
+def edit(store, filename=None):
+    if filename is None:
+        inp = sys.stdin
+    else:
+        inp = open(filename)
     msg = email.message_from_file(inp)
-    inp.close()
     
     entry = {}
     entry['title'] = msg['subject']
@@ -28,7 +29,11 @@ def post(store, filename):
 
     # Post entry.
     h = httplib2.Http()
-    resp, content = h.request(store, "POST", body=entry)
+    if msg['id']:
+        location = urlparse.urljoin(store, msg['id'])
+        resp, content = h.request('%s?REQUEST_METHOD=PUT' % location, "POST", body=entry)
+    else:
+        resp, content = h.request(store, "POST", body=entry)
 
     entry = simplejson.loads(content)
     del msg['date']
@@ -36,9 +41,11 @@ def post(store, filename):
     del msg['id']
     msg['id'] = entry['id'][len(store):]
 
-    outp = open(filename, 'w')
+    if filename is None:
+        outp = sys.stdout
+    else:
+        outp = open(filename, 'w')
     outp.write(str(msg))
-    outp.close()
 
     print resp['status']
 
@@ -47,32 +54,6 @@ def delete(id):
     h = httplib2.Http()
     resp, content = h.request('%s?REQUEST_METHOD=DELETE' % id, "POST")
     
-    print resp['status']
-
-
-def put(store, filename):
-    inp = open(filename)
-    msg = email.message_from_file(inp)
-    inp.close()
-
-    entry = {}
-    entry['title'] = msg['subject']
-    entry['content'] = {'content': msg.get_payload()}
-    entry = simplejson.dumps(entry)
-
-    # Post entry.
-    h = httplib2.Http()
-    location = urlparse.urljoin(store, msg['id'])
-    resp, content = h.request('%s?REQUEST_METHOD=PUT' % location, "POST", body=entry)
-
-    entry = simplejson.loads(content)
-    del msg['date']
-    msg['date'] = entry['updated']
-
-    outp = open(filename, 'w')
-    outp.write(str(msg))
-    outp.close()
-
     print resp['status']
 
 
