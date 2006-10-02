@@ -66,28 +66,28 @@ class JSONStore(object):
         Return entry.
         """
         if id is None:
-            # Return an empty dict for clients introspecting the store.
-            # Perhaps we should return a list of entries?
-            headers = [('Content-Encoding', 'utf-8'),
-                       ('Content-Type', 'application/json'), ]
-            self.start("404 Not found", headers)
-            return ['{}']
-            
-        try:
-            entry = self.em.get_entry(id)
-        except KeyError:
-            raise httpexceptions.HTTPNotFound()
+            query = parse_dict_querystring(environ)
+            size = query.get("size", None)
+            offset = query.get("offset", 0)
+            entries = self.em.get_entries(size, offset)
+        else: 
+            try:
+                entries = [self.em.get_entry(id)]
+            except KeyError:
+                raise httpexceptions.HTTPNotFound()
 
-        # Update 'id' to point to location.
-        location = construct_url(self.environ, with_query_string=False, with_path_info=False)
-        entry['id'] = urljoin(location, entry['id'])
+        for entry in entries:
+            # Update 'id' to point to location.
+            location = construct_url(self.environ, with_query_string=False, with_path_info=False)
+            entry['id'] = urljoin(location, entry['id'])
 
         # Convert to JSON.
-        entry = simplejson.dumps(entry, cls=DateTimeAwareJSONEncoder)
-        entry = entry.encode('utf-8')
+        if id is not None: entries = entries[0]
+        entries = simplejson.dumps(entries, cls=DateTimeAwareJSONEncoder)
+        entries = entries.encode('utf-8')
 
         # Check etags.
-        etag = md5.new(entry).hexdigest()
+        etag = md5.new(entries).hexdigest()
         incoming_etag = self.environ.get('HTTP_IF_NONE_MATCH', '')
         if etag == incoming_etag:
             self.start("304 Not Modified", [])
@@ -97,7 +97,7 @@ class JSONStore(object):
                    ('Content-Type', 'application/json'),
                    ('ETag', etag), ]
         self.start('200 OK', headers)
-        return [entry] 
+        return [entries] 
 
     def _POST(self, id):
         """
