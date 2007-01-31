@@ -2,4 +2,9 @@
       # -*- Entry points: -*-
       [paste.app_factory]
       main = jsonstore.jsonstore:make_app
+
+      [httpencode.format]
+      name rabbitfish = jsonstore.rabbitfish:rabbitfish [xml]
+      text/xml to python = jsonstore.rabbitfish:rabbitfish [xml]
+      application/xml to python = jsonstore.rabbitfish:rabbitfish [xml]
       

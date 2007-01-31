@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '0.1.1'
+version = '0.2'
 
 setup(name='jsonstore',
       version=version,
@@ -19,14 +19,23 @@ This package contains a WSGI app implementing an Atom store accessible through a
       zip_safe=True,
       install_requires=[
           # -*- Extra requirements: -*-
-          "Paste",
-          "atomstorage",
-          "simplejson",
+          'Paste',
+          'shove',
+          'httpencode',
+          'simplejson',
       ],
+      extras_require={
+          'xml': ['ElementTree'],
+      },
       entry_points="""
       # -*- Entry points: -*-
       [paste.app_factory]
       main = jsonstore.jsonstore:make_app
+
+      [httpencode.format]
+      name rabbitfish = jsonstore.rabbitfish:rabbitfish [xml]
+      text/xml to python = jsonstore.rabbitfish:rabbitfish [xml]
+      application/xml to python = jsonstore.rabbitfish:rabbitfish [xml]
       """,
       )
       

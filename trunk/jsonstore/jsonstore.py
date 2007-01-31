@@ -1,31 +1,15 @@
 import re
-import datetime
-import md5
+import urllib
 from urlparse import urljoin
 
 from paste import httpexceptions
-from paste.request import construct_url, parse_dict_querystring
-import simplejson
+from paste.request import parse_dict_querystring, construct_url
+from httpencode import parse_request, get_format
 
-from atomstorage import EntryManager
-
-
-class DateTimeAwareJSONEncoder(simplejson.JSONEncoder):
-    """
-    JSONEncoder subclass that knows how to encode date/time types
-    """
-    def default(self, obj):
-        if isinstance(obj, datetime.datetime):
-            return obj.strftime('%Y-%m-%dT%H:%M:%SZ')
-        elif isinstance(obj, datetime.date):
-            return obj.strftime('%Y-%m-%d')
-        elif isinstance(obj, datetime.time):
-            return obj.strftime('%H:%M:%SZ')
-        else:
-            return super(self, DateTimeAwareJSONEncoder).default(obj)
+from entries import EntryManager
 
 
-def make_app(global_conf, dsn='shelve://posts.db', **kwargs):
+def make_app(global_conf, dsn='bsddb://posts.db', **kwargs):
     """
     Create a JSON Atom store.
 
@@ -34,144 +18,135 @@ def make_app(global_conf, dsn='shelve://posts.db', **kwargs):
         [app:jsonstore]
         use = egg:jsonstore
         dsn = protocol://location
+
     """
-    return JSONStore(dsn)
+    store = JSONStore(dsn)
+    return store
 
 
 class JSONStore(object):
     """
-    A RESTful Atom store based on JSON.
+    A RESTful store based on JSON.
+
     """
     def __init__(self, dsn):
         self.em = EntryManager(dsn)
+        self.format = get_format('json')
 
     def __call__(self, environ, start_response):
         self.environ = environ
         self.start = start_response
 
-        # Allow overriding request method for clients that don't know PUT or DELETE.
-        query = parse_dict_querystring(environ)
-        req_method = query.get("REQUEST_METHOD") or environ['REQUEST_METHOD']
-        method = getattr(self, '_%s' % req_method)
-
         path_info = environ.get('PATH_INFO', '/')
-        m = re.match('/(?P<id>.+)?', path_info)
-        if m: return method(**m.groupdict())
+        dispatchers = [ ('/search/(?P<filters>.+)', self.search),
+                        ('/(?P<id>.+)?', self.default), ]
+        for regexp, func in dispatchers:
+            p = re.compile(regexp)
+            m = p.match(path_info)
+            if m: return func(**m.groupdict())
 
-        # Raise 404.
+        # 404.
         raise httpexceptions.HTTPNotFound()
-            
-    def _GET(self, id):
+
+    def default(self, id):
+        """
+        Dispatcher that uses the request method.
+
+        """
+        query = parse_dict_querystring(self.environ)
+        method = query.get('REQUEST_METHOD') or self.environ['REQUEST_METHOD']
+        func = getattr(self, '_%s' % method)
+        return func(id)
+
+    def _GET(self, id=None):
         """
         Return entry.
+
         """
         if id is None:
-            query = parse_dict_querystring(environ)
+            query = parse_dict_querystring(self.environ)
             size = query.get("size", None)
             offset = query.get("offset", 0)
             entries = self.em.get_entries(size, offset)
         else: 
             try:
-                entries = [self.em.get_entry(id)]
+                entries = self.em.get_entry(id)
             except KeyError:
-                raise httpexceptions.HTTPNotFound()
+                raise httpexceptions.HTTPNotFound()  # 404
 
-        for entry in entries:
-            # Update 'id' to point to location.
-            location = construct_url(self.environ, with_query_string=False, with_path_info=False)
-            entry['id'] = urljoin(location, entry['id'])
-
-        # Convert to JSON.
-        if id is not None: entries = entries[0]
-        entries = simplejson.dumps(entries, cls=DateTimeAwareJSONEncoder)
-        entries = entries.encode('utf-8')
-
-        # Check etags.
-        etag = md5.new(entries).hexdigest()
-        incoming_etag = self.environ.get('HTTP_IF_NONE_MATCH', '')
-        if etag == incoming_etag:
-            self.start("304 Not Modified", [])
-            return []
-
-        headers = [('Content-Encoding', 'utf-8'),
-                   ('Content-Type', 'application/json'),
-                   ('ETag', etag), ]
-        self.start('200 OK', headers)
-        return [entries] 
+        app = self.format.responder(entries, content_type='application/json')
+        return app(self.environ, self.start)
 
     def _POST(self, id):
         """
         Create a new entry.
+
         """
-        # Check for appropriate Content-Type
-        content_type = self.environ.get('CONTENT_TYPE', '')
-        content_type = content_type.split(';')[0]
-        if content_type and content_type != 'application/json':
-            self.start("400 Bad Request", [('Content-Type', 'text/plain')])
-            return ["Wrong media type."] 
-        
-        content_length = self.environ.get("CONTENT_LENGTH", '')
-        msg = self.environ['wsgi.input'].read(int(content_length))
-        msg = simplejson.loads(msg)
+        entry = parse_request(self.environ, output_type='python')
+
+        # Set id, if POSTed to specific resource.
+        if id is not None:
+            entry.setdefault('id', id)
+            if not id == entry['id']: raise httpexceptions.HTTPConflict()
         
         # Create the entry.
-        entry = self.em.create_entry(msg)
+        entry = self.em.create_entry(entry)
 
-        # Update 'id' to point to location.
-        location = construct_url(self.environ, with_query_string=False, with_path_info=False)
-        location = entry['id'] = urljoin(location, entry['id'])
+        # Generate new resource location.
+        store = construct_url(self.environ, with_query_string=False, with_path_info=False)
+        location = urljoin(store, entry['id'])
+        app = self.format.responder(entry, content_type='application/json', headers=[('Location', location)])
 
-        # Convert to JSON.
-        entry = simplejson.dumps(entry, cls=DateTimeAwareJSONEncoder)
-        entry = entry.encode('utf-8')
+        # "Fake start response to return 201 status.
+        def start(status, headers):
+            return self.start("201 Created", headers)
 
-        headers = [('Content-Type', 'application/json'),
-                   ('Content-Encoding', 'utf-8'),
-                   ('Location', location) ]
-        self.start('201 Created', headers)
-        return [entry]
+        return app(self.environ, start)
 
     def _PUT(self, id):
         """
         Update an existing entry.
+
         """
-        # Check for appropriate Content-Type
-        content_type = self.environ.get('CONTENT_TYPE', '')
-        content_type = content_type.split(';')[0]
-        if content_type and content_type != 'application/json':
-            self.start("400 Bad Request", [('Content-Type', 'text/plain')])
-            return ["Wrong media type."]
+        entry = parse_request(self.environ, output_type='python')
 
-        content_length = self.environ.get("CONTENT_LENGTH", '')
-        msg = self.environ['wsgi.input'].read(int(content_length))
-        entry = simplejson.loads(msg)
+        if id is not None:
+            entry.setdefault('id', id)
+            if not id == entry['id']: raise httpexceptions.HTTPConflict()
 
-        # Fix message id from location to identifier.
-        entry['id'] = id
+        # Update entry.
+        entry = self.em.update_entry(entry)
 
-        updated_entry = self.em.update_entry(entry)
-
-        # Update 'id' to point to location.
-        location = construct_url(self.environ, with_query_string=False, with_path_info=False)
-        updated_entry['id'] = urljoin(location, entry['id'])
-
-        # Convert to JSON.
-        updated_entry = simplejson.dumps(updated_entry, cls=DateTimeAwareJSONEncoder)
-        updated_entry = updated_entry.encode('utf-8')
-
-        headers = [('Content-Encoding', 'utf-8'),
-                   ('Content-Type', 'application/json') ]
-        self.start('200 OK', headers)
-        return [updated_entry] 
+        app = self.format.responder(entry, content_type='application/json')
+        return app(self.environ, self.start)
 
     def _DELETE(self, id):
         """
         Delete an existing entry.
+
         """
         self.em.delete_entry(id)
 
-        self.start("200 OK", [('Content-Type', 'application/json')])
-        return ['{}']
+        app = self.format.responder(None, content_type='application/json')
+        return app(self.environ, self.start)
+
+    def _HEAD(self, id):
+        """
+        Return headers only.
+
+        """
+        headers = [('Content-Encoding', 'utf-8'),
+                   ('Content-Type', 'application/json')]
+        self.start('200 OK', headers)
+        return []
+
+    def search(self, filters):
+        filters = urllib.unquote(filters)
+        filters = simplejson.loads(filters)
+        entries = self.em.search(filters, re.IGNORECASE)
+
+        app = self.format.responder(entries, content_type='application/json')
+        return app(self.environ, self.start)
 
     def close(self):
         self.em.close()
