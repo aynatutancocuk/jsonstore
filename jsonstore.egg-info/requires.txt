@@ -1,3 +1,7 @@
 Paste
-atomstorage
+shove
+httpencode
 simplejson
+
+[xml]
+ElementTree
