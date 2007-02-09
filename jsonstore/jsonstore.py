@@ -5,6 +5,7 @@ from urlparse import urljoin
 from paste import httpexceptions
 from paste.request import parse_dict_querystring, construct_url
 from httpencode import parse_request, get_format
+import simplejson
 
 from entries import EntryManager
 

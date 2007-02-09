@@ -50,8 +50,8 @@ def dump_xml_iter(data, content_type):
 def build(data):
     nodes = []
     for k, v in data.items():
-        node = etree.Element(k)
         if isinstance(v, dict):
+            node = etree.Element(k)
             for child in build(v):
                 node.append(child)
             nodes.append(node)
@@ -60,21 +60,10 @@ def build(data):
                 for child in build({k: item}):
                     nodes.append(child)
         else:
+            node = etree.Element(k)
             node.text = v
             nodes.append(node)
     return nodes
-
-    root = etree.Element(name)
-    if isinstance(content, dict):
-        for k, v in content.items():
-            root.append(build(k, v))
-    elif isinstance(content, list):
-        for item in content:
-            root.append(build(name, item))
-    else:
-        root.text = content
-    return root
-
 
 def load_xml(fp, content_type):
     # xml -> python
@@ -94,6 +83,7 @@ def parse(node):
             out[child.tag] = [out[child.tag]]
             out[child.tag].append(parse(child))
         else:
+            print out
             out[child.tag] = parse(child)
         if child.tail:
             if not isinstance(out, list): out = [out]
@@ -121,4 +111,7 @@ def _test():
     doctest.testmod()
 
 if __name__ == "__main__":
-    _test()
+    #_test()
+    f = open('/Users/roberto/Projects/irate/irate.xml')
+    print load_xml(f, '')
+
