@@ -10,6 +10,9 @@ import simplejson
 from entries import EntryManager
 
 
+DEFAULT_NUMBER_OF_ENTRIES = 10
+
+
 def make_app(global_conf, dsn='bsddb://posts.db', **kwargs):
     """
     Create a JSON Atom store.
@@ -66,7 +69,7 @@ class JSONStore(object):
         """
         if id is None:
             query = parse_dict_querystring(self.environ)
-            size = query.get("size", None)
+            size = query.get("size", DEFAULT_NUMBER_OF_ENTRIES)
             offset = query.get("offset", 0)
             entries = self.em.get_entries(size, offset)
         else: 
