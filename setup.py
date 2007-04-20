@@ -5,9 +5,9 @@ version = '0.2'
 
 setup(name='jsonstore',
       version=version,
-      description="A RESTful Atom store using a JSON representation.",
+      description="A RESTful store for JSON objects.",
       long_description="""\
-This package contains a WSGI app implementing an Atom store accessible through a JSON syntax.""",
+This package contains a WSGI app implementing a REST store accessible through a JSON syntax.""",
       classifiers=[], # Get strings from http://www.python.org/pypi?%3Aaction=list_classifiers
       keywords='',
       author='Roberto De Almeida',
@@ -31,11 +31,6 @@ This package contains a WSGI app implementing an Atom store accessible through a
       # -*- Entry points: -*-
       [paste.app_factory]
       main = jsonstore.jsonstore:make_app
-
-      [httpencode.format]
-      name rabbitfish = jsonstore.rabbitfish:rabbitfish [xml]
-      text/xml to python = jsonstore.rabbitfish:rabbitfish [xml]
-      application/xml to python = jsonstore.rabbitfish:rabbitfish [xml]
       """,
       )
       
