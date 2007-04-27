@@ -118,26 +118,6 @@ class EntryManager(object):
             >>> entries = em.search({"content": {"content": "Python"}}, re.IGNORECASE)
 
         """
-        def filter_(entry, filters, flags=0):
-            # If entry is a list, only a single value needs to match.
-            if isinstance(entry, list):
-                for item in entry:
-                    if filter_(item, filters, flags): return True
-                return False
-
-            # Otherwise, all filters should match the object.
-            for k, v in filters.items():
-                if isinstance(v, dict): 
-                    if not filter_(entry.get(k, {}), v, flags): return False
-                else:
-                    # if the filter has multiple values, only one has to match.
-                    if not isinstance(v, list): v = [v]
-                    for m in v:
-                        if re.match(m, entry.get(k, ''), flags): break
-                    else:
-                        return False
-            return True
-
         entries = self.get_entries()
         entries = [entry for entry in entries if filter_(entry, filters, flags)]
         return entries
@@ -154,3 +134,34 @@ class EntryManager(object):
 
     def close(self):
         self.store.close()
+
+
+def filter_(entry, filters, flags=0):
+    """
+    Filter an object using another object as a filter.
+
+    A few examples to make this clear::
+
+        >>> filter_({"one": "1", "two": "2"}, {"one": "1"})
+        True
+        >>> filter_({"one": "1", "two": "2"}, {"one": "2"})
+        False
+        >>> filter_({"one": "1", "two": "2"}, {"two": "2", "one": "1"})
+    """
+    # All filters should match the object.
+    for k, v in filters.items():
+        if isinstance(v, dict): 
+            if not filter_(entry.get(k, {}), v, flags): return False
+        else:
+            if not re.match(m, entry.get(k, ''), flags): return False
+    return True
+
+
+def _test():
+    import doctest
+    doctest.testmod()
+
+if __name__ == "__main__":
+    _test()
+
+
