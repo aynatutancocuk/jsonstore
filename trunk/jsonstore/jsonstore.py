@@ -7,7 +7,7 @@ from paste.request import parse_dict_querystring, construct_url
 from httpencode import parse_request, get_format
 import simplejson
 
-from entries import EntryManager
+from jsonstore.entries import EntryManager
 
 
 DEFAULT_NUMBER_OF_ENTRIES = 10
@@ -101,7 +101,7 @@ class JSONStore(object):
         location = urljoin(store, entry['id'])
         app = self.format.responder(entry, content_type='application/json', headers=[('Location', location)])
 
-        # "Fake start response to return 201 status.
+        # Fake start response to return 201 status.
         def start(status, headers):
             return self.start("201 Created", headers)
 
