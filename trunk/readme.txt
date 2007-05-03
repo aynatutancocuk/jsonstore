@@ -162,4 +162,4 @@ Another advantage of HTTPencode is that is has a filter for converting between `
 .. _WSGI:           http://wsgi.org/
 .. _`Python Paste`: http://pythonpaste.org/
 .. _`RESTful JSON`: http://bitworking.org/news/restful_json
-.. _HTTPencode    : http://pythonpaste.org/httpencode/
+.. _HTTPencode:     http://pythonpaste.org/httpencode/
