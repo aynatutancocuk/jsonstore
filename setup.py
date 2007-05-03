@@ -25,12 +25,11 @@ This package contains a WSGI app implementing a REST store accessible through a 
           'simplejson',
       ],
       extras_require={
-          'xml': ['ElementTree'],
       },
       entry_points="""
       # -*- Entry points: -*-
       [paste.app_factory]
-      main = jsonstore.jsonstore:make_app
+      main = jsonstore.store:make_app
       """,
       )
       

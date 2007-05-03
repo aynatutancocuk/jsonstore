@@ -69,16 +69,29 @@ class JSONStore(object):
         """
         if id is None:
             query = parse_dict_querystring(self.environ)
-            size = query.get("size", DEFAULT_NUMBER_OF_ENTRIES)
-            offset = query.get("offset", 0)
-            entries = self.em.get_entries(size, offset)
+            size = int(query.get("size", DEFAULT_NUMBER_OF_ENTRIES))
+            offset = int(query.get("offset", 0))
+            
+            # Read members from the collection. We get the requested number of
+            # entries plus the next one.
+            entries = self.em.get_entries(size+1, offset)
+            if len(entries) == size+1:
+                entries.pop()  # remove "next" entry
+                next = "size=%d&offset=%d" % (size, offset+size)
+            else:
+                next = None
+            
+            output = {"members": [{"href"  : entry["id"],
+                                   "entity": entry,
+                                  } for entry in entries],
+                      "next": next}
         else: 
             try:
-                entries = self.em.get_entry(id)
+                output = {"entity": self.em.get_entry(id)}
             except KeyError:
                 raise httpexceptions.HTTPNotFound()  # 404
 
-        app = self.format.responder(entries, content_type='application/json')
+        app = self.format.responder(output, content_type='application/json')
         return app(self.environ, self.start)
 
     def _POST(self, id):
@@ -99,7 +112,9 @@ class JSONStore(object):
         # Generate new resource location.
         store = construct_url(self.environ, with_query_string=False, with_path_info=False)
         location = urljoin(store, entry['id'])
-        app = self.format.responder(entry, content_type='application/json', headers=[('Location', location)])
+        app = self.format.responder({"entity": entry},
+                                    content_type='application/json',
+                                    headers=[('Location', location)])
 
         # Fake start response to return 201 status.
         def start(status, headers):
@@ -121,7 +136,7 @@ class JSONStore(object):
         # Update entry.
         entry = self.em.update_entry(entry)
 
-        app = self.format.responder(entry, content_type='application/json')
+        app = self.format.responder({"entity": entry}, content_type='application/json')
         return app(self.environ, self.start)
 
     def _DELETE(self, id):
@@ -145,11 +160,26 @@ class JSONStore(object):
         return []
 
     def search(self, filters):
+        query = parse_dict_querystring(self.environ)
+        size = int(query.get("size", DEFAULT_NUMBER_OF_ENTRIES))
+        offset = int(query.get("offset", 0))
+
         filters = urllib.unquote(filters)
         filters = simplejson.loads(filters)
-        entries = self.em.search(filters, re.IGNORECASE)
+        entries = self.em.search(filters, re.IGNORECASE, size, offset)
 
-        app = self.format.responder(entries, content_type='application/json')
+        if len(entries) == size+1:
+            entries.pop()  # remove "next" entry
+            next = "size=%d&offset=%d" % (size, offset+size)
+        else:
+            next = None
+            
+        output = {"members": [{"href"  : entry["id"],
+                               "entity": entry,
+                              } for entry in entries],
+                  "next": next}
+
+        app = self.format.responder(output, content_type='application/json')
         return app(self.environ, self.start)
 
     def close(self):
