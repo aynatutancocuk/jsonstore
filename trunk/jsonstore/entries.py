@@ -2,7 +2,7 @@
 A simple EntryManager.
 
 Entries are stored as dicts, using for keys the integers
-as strings ("1", "2", "3", etc.) as default.
+as unicode strings (u"1", u"2", u"3", etc.) as default.
 
 """
 import time
@@ -34,7 +34,7 @@ class EntryManager(object):
         entry.setdefault('updated', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
 
         # Store entry.
-        self.store[str(entry["id"])] = entry
+        self.store[entry["id"]] = entry
         return entry
 
     def get_entry(self, key):
@@ -46,7 +46,7 @@ class EntryManager(object):
         Will return a dict describing the entry.
 
         """
-        entry = self.store[str(key)]
+        entry = self.store[key]
         return entry
 
     def get_entries(self, size=None, offset=0):
@@ -80,7 +80,7 @@ class EntryManager(object):
             >>> em.delete_entry("1")
 
         """
-        del self.store[str(key)]
+        del self.store[key]
 
     def update_entry(self, new_entry):
         """
@@ -95,17 +95,17 @@ class EntryManager(object):
 
         """
         # Retrieve old entry and update id.
-        entry = self.store[str(new_entry["id"])]
+        entry = self.store[new_entry["id"]]
         entry.update(new_entry)
 
         # Update 'updated'.
         entry['updated'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         
         # Store it back.
-        self.store[str(entry["id"])] = entry
+        self.store[entry["id"]] = entry
         return entry
 
-    def search(self, filters, flags=0):
+    def search(self, filters, flags=0, size=None, offset=0):
         """
         Search all entries.
 
@@ -120,6 +120,8 @@ class EntryManager(object):
         """
         entries = self.get_entries()
         entries = [entry for entry in entries if filter_(entry, filters, flags)]
+        if size is not None: size += offset
+        entries = entries[offset:size]
         return entries
 
     def _next_id(self):
@@ -129,7 +131,7 @@ class EntryManager(object):
         keys.sort(key=int)
         
         # Get a new key.
-        key = keys and str(int(keys[-1]) + 1) or "0"
+        key = keys and unicode(int(keys[-1]) + 1) or "0"
         return key
 
     def close(self):
@@ -140,28 +142,18 @@ def filter_(entry, filters, flags=0):
     """
     Filter an object using another object as a filter.
 
-    A few examples to make this clear::
-
-        >>> filter_({"one": "1", "two": "2"}, {"one": "1"})
-        True
-        >>> filter_({"one": "1", "two": "2"}, {"one": "2"})
-        False
-        >>> filter_({"one": "1", "two": "2"}, {"two": "2", "one": "1"})
     """
+    # If the entry is a list, only a single value needs to match
+    # -- think of a (Atom) entry with multiple categories, eg.
+    if isinstance(entry, list):
+        for item in entry:
+            if filter_(item, filters, flags): return True
+        return False
+
     # All filters should match the object.
     for k, v in filters.items():
         if isinstance(v, dict): 
             if not filter_(entry.get(k, {}), v, flags): return False
         else:
-            if not re.match(m, entry.get(k, ''), flags): return False
+            if not re.match(v, entry.get(k, ''), flags): return False
     return True
-
-
-def _test():
-    import doctest
-    doctest.testmod()
-
-if __name__ == "__main__":
-    _test()
-
-
