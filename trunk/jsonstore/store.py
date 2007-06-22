@@ -57,9 +57,7 @@ class JSONStore(object):
         Dispatcher that uses the request method.
 
         """
-        query = parse_dict_querystring(self.environ)
-        method = query.get('REQUEST_METHOD') or self.environ['REQUEST_METHOD']
-        func = getattr(self, '_%s' % method)
+        func = getattr(self, '_%s' % self.environ['REQUEST_METHOD'])
         return func(id)
 
     def _GET(self, id=None):
@@ -77,17 +75,14 @@ class JSONStore(object):
             entries = self.em.get_entries(size+1, offset)
             if len(entries) == size+1:
                 entries.pop()  # remove "next" entry
-                next = "size=%d&offset=%d" % (size, offset+size)
+                next = "?size=%d&offset=%d" % (size, offset+size)
             else:
                 next = None
             
-            output = {"members": [{"href"  : entry["id"],
-                                   "entity": entry,
-                                  } for entry in entries],
-                      "next": next}
+            output = {"collection": entries, "next": next}
         else: 
             try:
-                output = {"entity": self.em.get_entry(id)}
+                output = self.em.get_entry(id)
             except KeyError:
                 raise httpexceptions.HTTPNotFound()  # 404
 
@@ -112,7 +107,7 @@ class JSONStore(object):
         # Generate new resource location.
         store = construct_url(self.environ, with_query_string=False, with_path_info=False)
         location = urljoin(store, entry['id'])
-        app = self.format.responder({"entity": entry},
+        app = self.format.responder(entry,
                                     content_type='application/json',
                                     headers=[('Location', location)])
 
@@ -136,7 +131,7 @@ class JSONStore(object):
         # Update entry.
         entry = self.em.update_entry(entry)
 
-        app = self.format.responder({"entity": entry}, content_type='application/json')
+        app = self.format.responder(entry, content_type='application/json')
         return app(self.environ, self.start)
 
     def _DELETE(self, id):
@@ -170,14 +165,11 @@ class JSONStore(object):
 
         if len(entries) == size+1:
             entries.pop()  # remove "next" entry
-            next = "size=%d&offset=%d" % (size, offset+size)
+            next = "?size=%d&offset=%d" % (size, offset+size)
         else:
             next = None
             
-        output = {"members": [{"href"  : entry["id"],
-                               "entity": entry,
-                              } for entry in entries],
-                  "next": next}
+        output = {"collection": entries, "next": next}
 
         app = self.format.responder(output, content_type='application/json')
         return app(self.environ, self.start)
