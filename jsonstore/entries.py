@@ -34,7 +34,7 @@ class EntryManager(object):
         entry.setdefault('updated', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()))
 
         # Store entry.
-        self.store[entry["id"]] = entry
+        self.store[str(entry["id"])] = entry
         return entry
 
     def get_entry(self, key):
@@ -46,7 +46,7 @@ class EntryManager(object):
         Will return a dict describing the entry.
 
         """
-        entry = self.store[key]
+        entry = self.store[str(key)]
         return entry
 
     def get_entries(self, size=None, offset=0):
@@ -80,7 +80,7 @@ class EntryManager(object):
             >>> em.delete_entry("1")
 
         """
-        del self.store[key]
+        del self.store[str(key)]
 
     def update_entry(self, new_entry):
         """
@@ -95,14 +95,14 @@ class EntryManager(object):
 
         """
         # Retrieve old entry and update id.
-        entry = self.store[new_entry["id"]]
+        entry = self.store[str(new_entry["id"])]
         entry.update(new_entry)
 
         # Update 'updated'.
         entry['updated'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         
         # Store it back.
-        self.store[entry["id"]] = entry
+        self.store[str(entry["id"])] = entry
         return entry
 
     def search(self, filters, flags=0, size=None, offset=0):
@@ -131,7 +131,7 @@ class EntryManager(object):
         keys.sort(key=int)
         
         # Get a new key.
-        key = keys and unicode(int(keys[-1]) + 1) or "0"
+        key = keys and str(int(keys[-1]) + 1) or "0"
         return key
 
     def close(self):
