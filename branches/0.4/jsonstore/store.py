@@ -1,5 +1,5 @@
 import re
-import urllib
+from urllib import unquote
 from urlparse import urljoin
 import md5
 
@@ -45,7 +45,7 @@ class JSONStore(object):
     def _GET(self, environ, start_response):
         # Unserialize PATH_INFO to a JSON object.
         path_info = environ.get('PATH_INFO', '/')
-        path_info = urllib.unquote(path_info)
+        path_info = unquote(path_info)
         path_info = path_info.strip('/') or 'null'  # use null if path is /
         obj = cjson.decode(path_info)
         
@@ -114,7 +114,7 @@ class JSONStore(object):
 
         path_info = environ.get('PATH_INFO', '/')
         path_info = path_info.strip('/')
-        id_ = urllib.unquote(path_info)
+        id_ = unquote(path_info)
         if id_ is not None:
             entry.setdefault('__id__', id_)
             if id_ != entry['__id__']: raise httpexceptions.HTTPConflict()
@@ -134,7 +134,7 @@ class JSONStore(object):
     def _DELETE(self, environ, start_response):
         path_info = environ.get('PATH_INFO', '/')
         path_info = path_info.strip('/')
-        id_ = urllib.unquote(path_info)
+        id_ = unquote(path_info)
 
         self.em.delete_entry(id_)
 
