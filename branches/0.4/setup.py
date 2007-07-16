@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '0.2.2'
+version = '0.3'
 
 setup(name='jsonstore',
       version=version,
@@ -20,16 +20,19 @@ This package contains a WSGI app implementing a REST store accessible through a 
       install_requires=[
           # -*- Extra requirements: -*-
           'Paste',
-          'shove',
           'httpencode',
-          'simplejson',
+          'python-cjson',
       ],
       extras_require={
+          'mysql': ['MySQLdb'],
       },
       entry_points="""
       # -*- Entry points: -*-
       [paste.app_factory]
       main = jsonstore.store:make_app
+
+      [jsonstore.backend]
+      mysql = jsonstore.entries.mysql:EntryManager
       """,
       )
       
