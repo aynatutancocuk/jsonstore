@@ -8,9 +8,6 @@ import cjson
 from MySQLdb import connect
 
 
-# TODO: regular expression
-
-
 def split_location(location):
     user, host = urllib.splituser(location)
     if user:
@@ -171,7 +168,8 @@ class EntryManager(object):
         
         return self.get_entry(id_)
 
-    def search(self, obj, flags=0, size=None, offset=0):
+    def search(self, obj, re=False, flags=0, size=None, offset=0):
+        # TODO: flags?
         pairs = list(flatten(obj))
         pairs.sort()
         groups = itertools.groupby(pairs, operator.itemgetter(0))
@@ -193,16 +191,14 @@ class EntryManager(object):
         for (key, group) in groups:
             group = list(group)
             unused = [params.extend(t) for t in group]
-            subquery = ["(position=%s AND leaf=%s)" for t in group]
+            if re: subquery = ["(position=%s AND leaf REGEXP(%s))" for t in group]
+            else: subquery = ["(position=%s AND leaf=%s)" for t in group]
             condition.append(' OR '.join(subquery))
             count += len(unused)
         # Join all conditions with an AND.
-        condition = ' OR '.join(condition)
-        query.append(condition)
+        query.append(' OR '.join(condition))
         query.append('GROUP BY id) AS matches WHERE matches.n=%d' % count)  # close subselect
-        query = ' '.join(query)
-        print query.replace("%s", "'%s'") % tuple(params)
-        curs.execute(query, tuple(params))
+        curs.execute(' '.join(query), tuple(params))
         ids = [str(row[0]) for row in curs.fetchall()]
 
         if ids:
