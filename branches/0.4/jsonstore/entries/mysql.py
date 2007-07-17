@@ -168,19 +168,25 @@ class EntryManager(object):
         
         return self.get_entry(id_)
 
-    def search(self, obj, re=False, flags=0, size=None, offset=0):
-        # TODO: flags?
+    def search(self, obj, flags=0, size=None, offset=0):
+        """
+        Search database using a JSON object.
+        
+        The idea is here is to flatten the JSON object (the "key"), and search the index table for each leaf of the key using an OR. We then get those ids where the number of results is equal to the number of leaves in the key, since these objects match the whole key.
+        
+        """
+        curs = self.conn.cursor()
+
+        # Flatten the JSON key object.
         pairs = list(flatten(obj))
         pairs.sort()
         groups = itertools.groupby(pairs, operator.itemgetter(0))
-
-        curs = self.conn.cursor()
 
         # Build search query. We use two separate queries, since MySQL has 
         # incredibly slow subqueries.
         # http://mysql2.mirrors-r-us.net/doc/refman/5.0/en/in-subquery-optimization.html
         # http://blog.ealden.net/article/mysql-50-and-in-subquery
-        query = ["SELECT matches.id id FROM (SELECT id, count(*) AS n FROM flat"]
+        query = ["SELECT matches.id FROM (SELECT id, count(*) AS n FROM flat"]
         if groups: query.append("WHERE")
         condition = []
         params = []
@@ -191,23 +197,31 @@ class EntryManager(object):
         for (key, group) in groups:
             group = list(group)
             unused = [params.extend(t) for t in group]
-            if re: subquery = ["(position=%s AND leaf REGEXP(%s))" for t in group]
-            else: subquery = ["(position=%s AND leaf=%s)" for t in group]
+
+            # Regular expressions.
+            if flags == -1:
+                # Plain match w/o regexp.
+                subquery = ["(position=%s AND leaf=%s)" for t in group]
+            else:
+                # We do not support Python re's flags, sorry.
+                subquery = ["(position=%s AND leaf REGEXP(%s))" for t in group]
+
             condition.append(' OR '.join(subquery))
             count += len(unused)
         # Join all conditions with an AND.
         query.append(' OR '.join(condition))
-        query.append('GROUP BY id) AS matches WHERE matches.n=%d' % count)  # close subselect
+        query.append('GROUP BY id) AS matches WHERE matches.n=%d' % count)
+
         curs.execute(' '.join(query), tuple(params))
         ids = [str(row[0]) for row in curs.fetchall()]
 
         if ids:
+            # Now we do a simple query to get the results.
             query = ["SELECT id, entry, updated FROM store WHERE id IN (%s)" % ', '.join(ids)]
             if size is not None: query.append("LIMIT %s" % size)
             if offset: query.append("OFFSET %s" % offset)
             query.append("ORDER BY updated DESC")
-            query = ' '.join(query)
-            curs.execute(query)
+            curs.execute(' '.join(query))
             results = curs.fetchall()
         else:
             results = []
