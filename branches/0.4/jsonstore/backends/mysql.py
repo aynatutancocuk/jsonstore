@@ -74,6 +74,8 @@ class EntryManager(object):
         self.conn.commit()
 
     def create_entry(self, entry):
+        assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+
         curs = self.conn.cursor()
 
         # Store entry.
@@ -96,10 +98,12 @@ class EntryManager(object):
         
     def get_entry(self, key):
         curs = self.conn.cursor()
+        curs.execute("SET SESSION time_zone = 'SYSTEM';")
 
         curs.execute("""
-            SELECT id, entry, updated FROM store
-            WHERE id=%s;
+            SELECT id, entry, 
+            DATE_FORMAT(updated, '%%Y-%%m-%%dT%%TZ')
+            FROM store WHERE id=%s;
         """, (key,))
         id_, entry, updated = curs.fetchone()
         
@@ -111,8 +115,9 @@ class EntryManager(object):
 
     def get_entries(self, size=None, offset=0): 
         curs = self.conn.cursor()
+        curs.execute("SET SESSION time_zone = 'SYSTEM';")
 
-        query = ["SELECT id, entry, updated FROM store"]
+        query = ["SELECT id, entry, DATE_FORMAT(updated, '%%Y-%%m-%%dT%%TZ') FROM store"]
         query.append("ORDER BY updated DESC")
         if size is not None: query.append("LIMIT %s" % size)
         if offset: query.append("OFFSET %s" % offset)
@@ -143,6 +148,8 @@ class EntryManager(object):
         self.conn.commit()
 
     def update_entry(self, new_entry): 
+        assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+
         curs = self.conn.cursor()
 
         curs.execute("""
@@ -176,17 +183,14 @@ class EntryManager(object):
         
         """
         curs = self.conn.cursor()
+        curs.execute("SET SESSION time_zone = 'SYSTEM';")
 
         # Flatten the JSON key object.
         pairs = list(flatten(obj))
         pairs.sort()
         groups = itertools.groupby(pairs, operator.itemgetter(0))
 
-        # Build search query. We use two separate queries, since MySQL has 
-        # incredibly slow subqueries.
-        # http://mysql2.mirrors-r-us.net/doc/refman/5.0/en/in-subquery-optimization.html
-        # http://blog.ealden.net/article/mysql-50-and-in-subquery
-        query = ["SELECT matches.id FROM (SELECT id, count(*) AS n FROM flat"]
+        query = ["SELECT store.id, store.entry, DATE_FORMAT(store.updated, '%%Y-%%m-%%dT%%TZ') FROM store LEFT JOIN flat ON store.id=flat.id"]
         if groups: query.append("WHERE")
         condition = []
         params = []
@@ -210,21 +214,13 @@ class EntryManager(object):
             count += len(unused)
         # Join all conditions with an AND.
         query.append(' OR '.join(condition))
-        query.append('GROUP BY id) AS matches WHERE matches.n=%d' % count)
+        query.append('GROUP BY store.id HAVING count(*)=%d' % count)
 
+        query.append("ORDER BY store.updated DESC")
+        if size is not None: query.append("LIMIT %s" % size)
+        if offset: query.append("OFFSET %s" % offset)
         curs.execute(' '.join(query), tuple(params))
-        ids = [str(row[0]) for row in curs.fetchall()]
-
-        if ids:
-            # Now we do a simple query to get the results.
-            query = ["SELECT id, entry, updated FROM store WHERE id IN (%s)" % ', '.join(ids)]
-            query.append("ORDER BY updated DESC")
-            if size is not None: query.append("LIMIT %s" % size)
-            if offset: query.append("OFFSET %s" % offset)
-            curs.execute(' '.join(query))
-            results = curs.fetchall()
-        else:
-            results = []
+        results = curs.fetchall()
 
         entries = []
         for id_, entry, updated in results:

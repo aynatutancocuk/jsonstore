@@ -63,13 +63,15 @@ class EntryManager(object):
         self.conn.commit()
 
     def create_entry(self, entry):
+        assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+
         curs = self.conn.cursor()
 
         # Store entry.
         curs.execute("""
             INSERT INTO store (entry, updated)
             VALUES (?, ?);
-        """, (cjson.encode(entry), datetime.datetime.now()))
+        """, (cjson.encode(entry), datetime.datetime.utcnow()))
         id_ = curs.lastrowid
 
         # Index entry.
@@ -94,7 +96,7 @@ class EntryManager(object):
         
         entry = cjson.decode(entry)
         entry['__id__'] = id_
-        entry['__updated__'] = str(updated)
+        entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
         
         return entry
 
@@ -111,7 +113,7 @@ class EntryManager(object):
         for id_, entry, updated in curs.fetchall():
             entry = cjson.decode(entry)
             entry['__id__'] = id_
-            entry['__updated__'] = str(updated)
+            entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
             entries.append(entry)
 
         return entries
@@ -132,13 +134,15 @@ class EntryManager(object):
         self.conn.commit()
 
     def update_entry(self, new_entry): 
+        assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+
         curs = self.conn.cursor()
 
         curs.execute("""
             UPDATE store
             SET entry=?, updated=?
             WHERE id=?;
-        """, (cjson.encode(new_entry), datetime.datetime.now(), new_entry['__id__']))
+        """, (cjson.encode(new_entry), datetime.datetime.utcnow(), new_entry['__id__']))
 
         # Rebuild index.
         curs.execute("""
@@ -171,11 +175,7 @@ class EntryManager(object):
         pairs.sort()
         groups = itertools.groupby(pairs, operator.itemgetter(0))
 
-        # Build search query. We use two separate queries, since MySQL has 
-        # incredibly slow subqueries.
-        # http://mysql2.mirrors-r-us.net/doc/refman/5.0/en/in-subquery-optimization.html
-        # http://blog.ealden.net/article/mysql-50-and-in-subquery
-        query = ["SELECT matches.id FROM (SELECT id, count(*) AS n FROM flat"]
+        query = ["SELECT store.id, store.entry, store.updated FROM store LEFT JOIN flat ON store.id=flat.id"]
         if groups: query.append("WHERE")
         condition = []
         params = []
@@ -187,34 +187,26 @@ class EntryManager(object):
             group = list(group)
             unused = [params.extend(t) for t in group]
 
-            # Regular expressions are not supported.
+            # Regular expressions.
             subquery = ["(position=? AND leaf=?)" for t in group]
 
             condition.append(' OR '.join(subquery))
             count += len(unused)
         # Join all conditions with an AND.
         query.append(' OR '.join(condition))
-        query.append('GROUP BY id) AS matches WHERE matches.n=%d' % count)
+        query.append('GROUP BY store.id HAVING count(*)=%d' % count)
 
+        query.append("ORDER BY store.updated DESC")
+        if size is not None: query.append("LIMIT %s" % size)
+        if offset: query.append("OFFSET %s" % offset)
         curs.execute(' '.join(query), tuple(params))
-        ids = [str(row[0]) for row in curs.fetchall()]
-
-        if ids:
-            # Now we do a simple query to get the results.
-            query = ["SELECT id, entry, updated FROM store WHERE id IN (%s)" % ', '.join(ids)]
-            query.append("ORDER BY updated DESC")
-            if size is not None: query.append("LIMIT %s" % size)
-            if offset: query.append("OFFSET %s" % offset)
-            curs.execute(' '.join(query))
-            results = curs.fetchall()
-        else:
-            results = []
+        results = curs.fetchall()
 
         entries = []
         for id_, entry, updated in results:
             entry = cjson.decode(entry)
             entry['__id__'] = id_
-            entry['__updated__'] = str(updated)
+            entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
             entries.append(entry)
 
         return entries

@@ -8,7 +8,7 @@ from paste.request import parse_dict_querystring, construct_url
 from httpencode import parse_request, get_format
 import cjson
 
-from jsonstore.entries import EntryManager
+from jsonstore.backends import EntryManager
 
 
 DEFAULT_NUMBER_OF_ENTRIES = 10
