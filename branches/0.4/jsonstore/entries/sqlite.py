@@ -1,29 +1,13 @@
+import os.path
 import urllib
 import itertools
 import operator
+import datetime
 import threading
 LOCAL = threading.local()
 
 import cjson
-from MySQLdb import connect
-
-
-def split_location(location):
-    user, host = urllib.splituser(location)
-    if user:
-        user, passwd = urllib.splitpasswd(user)
-    else:
-        passwd = None
-
-    host, db = urllib.splithost('//' + host)
-    db = db.lstrip('/')
-    host, port = urllib.splitport(host)
-
-    kwargs = {}
-    for name in ['user', 'passwd', 'host', 'port', 'db']:
-        var = locals()[name]
-        if var is not None: kwargs[name] = var
-    return kwargs
+from pysqlite2 import dbapi2 as sqlite
 
 
 def flatten(obj, keys=[]):
@@ -44,33 +28,38 @@ def flatten(obj, keys=[]):
 class EntryManager(object):
     def __init__(self, location):
         # Create connection.
-        self.params = split_location(location)
+        self.location = location
 
         # Create table if it doesn't exist.
-        self._create_table()
+        if not os.path.exists(location): self._create_table()
 
     @property
     def conn(self):
         if not hasattr(LOCAL, "connection"):
-            LOCAL.connection = connect(**self.params)
+            LOCAL.connection = sqlite.connect(self.location, 
+                    detect_types=sqlite.PARSE_DECLTYPES|sqlite.PARSE_COLNAMES)
         return LOCAL.connection
 
     def _create_table(self):
         curs = self.conn.cursor()
         curs.execute("""
-            CREATE TABLE IF NOT EXISTS store (
-                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+            CREATE TABLE store (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 entry TEXT,
-                updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP);
+                updated timestamp);
         """)
 
         curs.execute("""
-            CREATE TABLE IF NOT EXISTS flat (
+            CREATE TABLE flat (
                 id INTEGER,
                 position CHAR(255),
-                leaf TEXT,
-                INDEX (position));
+                leaf TEXT);
         """)
+
+        curs.execute("""
+            CREATE INDEX position ON flat (position);
+        """)
+
         self.conn.commit()
 
     def create_entry(self, entry):
@@ -78,16 +67,16 @@ class EntryManager(object):
 
         # Store entry.
         curs.execute("""
-            INSERT INTO store (entry)
-            VALUES (%s);
-        """, (cjson.encode(entry),))
+            INSERT INTO store (entry, updated)
+            VALUES (?, ?);
+        """, (cjson.encode(entry), datetime.datetime.now()))
         id_ = curs.lastrowid
 
         # Index entry.
         indices = [(id_, k, v) for (k, v) in flatten(entry)]
         curs.executemany("""
             INSERT INTO flat (id, position, leaf)
-            VALUES (%s, %s, %s);
+            VALUES (?, ?, ?);
         """, indices)
 
         self.conn.commit()
@@ -99,7 +88,7 @@ class EntryManager(object):
 
         curs.execute("""
             SELECT id, entry, updated FROM store
-            WHERE id=%s;
+            WHERE id=?;
         """, (key,))
         id_, entry, updated = curs.fetchone()
         
@@ -132,12 +121,12 @@ class EntryManager(object):
 
         curs.execute("""
             DELETE FROM store
-            WHERE id=%s;
+            WHERE id=?;
         """, (key,))
 
         curs.execute("""
             DELETE FROM flat
-            WHERE id=%s;
+            WHERE id=?;
         """, (key,))
 
         self.conn.commit()
@@ -147,21 +136,21 @@ class EntryManager(object):
 
         curs.execute("""
             UPDATE store
-            SET entry=%s
-            WHERE id=%s;
-        """, (cjson.encode(new_entry), new_entry['__id__']))
+            SET entry=?, updated=?
+            WHERE id=?;
+        """, (cjson.encode(new_entry), datetime.datetime.now(), new_entry['__id__']))
 
         # Rebuild index.
         curs.execute("""
             DELETE FROM flat
-            WHERE id=%s;
+            WHERE id=?;
         """, new_entry['__id__'])
         
         # Index entry.
         indices = [(new_entry['__id__'], k, v) for (k, v) in flatten(new_entry)]
         curs.executemany("""
             INSERT INTO flat (id, position, leaf)
-            VALUES (%s, %s, %s);
+            VALUES (?, ?, ?);
         """, indices)
 
         self.conn.commit()
@@ -198,13 +187,8 @@ class EntryManager(object):
             group = list(group)
             unused = [params.extend(t) for t in group]
 
-            # Regular expressions.
-            if flags == -1:
-                # Plain match w/o regexp.
-                subquery = ["(position=%s AND leaf=%s)" for t in group]
-            else:
-                # We do not support Python re's flags, sorry.
-                subquery = ["(position=%s AND leaf REGEXP(%s))" for t in group]
+            # Regular expressions are not supported.
+            subquery = ["(position=? AND leaf=?)" for t in group]
 
             condition.append(' OR '.join(subquery))
             count += len(unused)
