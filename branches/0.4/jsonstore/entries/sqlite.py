@@ -94,7 +94,7 @@ class EntryManager(object):
         
         entry = cjson.decode(entry)
         entry['__id__'] = id_
-        entry['__updated__'] = updated
+        entry['__updated__'] = str(updated)
         
         return entry
 
@@ -111,7 +111,7 @@ class EntryManager(object):
         for id_, entry, updated in curs.fetchall():
             entry = cjson.decode(entry)
             entry['__id__'] = id_
-            entry['__updated__'] = updated
+            entry['__updated__'] = str(updated)
             entries.append(entry)
 
         return entries
@@ -214,7 +214,7 @@ class EntryManager(object):
         for id_, entry, updated in results:
             entry = cjson.decode(entry)
             entry['__id__'] = id_
-            entry['__updated__'] = updated
+            entry['__updated__'] = str(updated)
             entries.append(entry)
 
         return entries

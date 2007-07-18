@@ -98,7 +98,7 @@ class JSONStore(object):
 
         # Generate new resource location.
         store = construct_url(environ, with_query_string=False, with_path_info=False)
-        location = urljoin(store, output['__id__'])
+        location = urljoin(store, str(output['__id__']))
         app = self.format.responder(output,
                 content_type='application/json',
                 headers=[('Location', location)])
