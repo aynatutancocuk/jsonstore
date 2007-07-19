@@ -215,10 +215,10 @@ class EntryManager(object):
         # Join all conditions with an AND.
         query.append(' OR '.join(condition))
         query.append('GROUP BY store.id HAVING count(*)=%d' % count)
-
         query.append("ORDER BY store.updated DESC")
         if size is not None: query.append("LIMIT %s" % size)
         if offset: query.append("OFFSET %s" % offset)
+
         curs.execute(' '.join(query), tuple(params))
         results = curs.fetchall()
 
