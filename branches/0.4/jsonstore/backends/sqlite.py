@@ -173,7 +173,7 @@ class EntryManager(object):
         # Flatten the JSON key object.
         pairs = list(flatten(obj))
         pairs.sort()
-        groups = itertools.groupby(pairs, operator.itemgetter(0))
+        groups = list(itertools.groupby(pairs, operator.itemgetter(0)))
 
         query = ["SELECT store.id, store.entry, store.updated FROM store LEFT JOIN flat ON store.id=flat.id"]
         if groups: query.append("WHERE")
@@ -194,7 +194,7 @@ class EntryManager(object):
             count += len(unused)
         # Join all conditions with an AND.
         query.append(' OR '.join(condition))
-        query.append('GROUP BY store.id HAVING count(*)=%d' % count)
+        if count: query.append('GROUP BY store.id HAVING count(*)=%d' % count)
         query.append("ORDER BY store.updated DESC")
         if size is not None: query.append("LIMIT %s" % size)
         if offset: query.append("OFFSET %s" % offset)

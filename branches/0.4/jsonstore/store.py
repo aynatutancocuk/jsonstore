@@ -53,7 +53,7 @@ class JSONStore(object):
         if isinstance(obj, (int, long, float, basestring)): 
             try:
                 output = self.em.get_entry(obj)
-            except KeyError:
+            except (KeyError, TypeError):
                 raise httpexceptions.HTTPNotFound()  # 404
 
         # Collection from listing or search.
