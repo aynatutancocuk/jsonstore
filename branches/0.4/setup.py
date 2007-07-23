@@ -25,6 +25,7 @@ This package contains a WSGI app implementing a REST store accessible through a 
       ],
       extras_require={
           'mysql': ['MySQLdb'],
+          'sqlite': ['pysqlite>=2'],
       },
       entry_points="""
       # -*- Entry points: -*-
@@ -32,7 +33,8 @@ This package contains a WSGI app implementing a REST store accessible through a 
       main = jsonstore.store:make_app
 
       [jsonstore.backend]
-      mysql = jsonstore.entries.mysql:EntryManager
+      mysql = jsonstore.backends.mysql:EntryManager
+      sqlite = jsonstore.backends.sqlite:EntryManager
       """,
       )
       
