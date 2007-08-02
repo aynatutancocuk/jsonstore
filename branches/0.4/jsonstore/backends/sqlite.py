@@ -6,7 +6,7 @@ import datetime
 import threading
 LOCAL = threading.local()
 
-import cjson
+from simplejson import loads, dumps
 from pysqlite2 import dbapi2 as sqlite
 
 
@@ -71,7 +71,7 @@ class EntryManager(object):
         curs.execute("""
             INSERT INTO store (entry, updated)
             VALUES (?, ?);
-        """, (cjson.encode(entry), datetime.datetime.utcnow()))
+        """, (dumps(entry), datetime.datetime.utcnow()))
         id_ = curs.lastrowid
 
         # Index entry.
@@ -94,7 +94,7 @@ class EntryManager(object):
         """, (key,))
         id_, entry, updated = curs.fetchone()
         
-        entry = cjson.decode(entry)
+        entry = loads(entry)
         entry['__id__'] = id_
         entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
         
@@ -111,7 +111,7 @@ class EntryManager(object):
 
         entries = []
         for id_, entry, updated in curs.fetchall():
-            entry = cjson.decode(entry)
+            entry = loads(entry)
             entry['__id__'] = id_
             entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
             entries.append(entry)
@@ -142,7 +142,7 @@ class EntryManager(object):
             UPDATE store
             SET entry=?, updated=?
             WHERE id=?;
-        """, (cjson.encode(new_entry), datetime.datetime.utcnow(), new_entry['__id__']))
+        """, (dumps(new_entry), datetime.datetime.utcnow(), new_entry['__id__']))
 
         # Rebuild index.
         curs.execute("""
@@ -161,7 +161,7 @@ class EntryManager(object):
         
         return self.get_entry(id_)
 
-    def search(self, obj, flags=0, size=None, offset=0):
+    def search(self, obj, mode=0, size=None, offset=0):
         """
         Search database using a JSON object.
         
@@ -187,8 +187,15 @@ class EntryManager(object):
             group = list(group)
             unused = [params.extend(t) for t in group]
 
-            # Regular expressions.
-            subquery = ["(position=? AND leaf=?)" for t in group]
+            # Search mode.
+            if mode == 0:
+                # Plain match.
+                subquery = ["(position=? AND leaf=?)" for t in group]
+            elif mode == 1:
+                # LIKE search.
+                subquery = ["(position=? AND leaf LIKE ?)" for t in group]
+            else:
+                raise Exception("Search mode %d not supported!" % mode)
 
             condition.append(' OR '.join(subquery))
             count += len(unused)
@@ -204,7 +211,7 @@ class EntryManager(object):
 
         entries = []
         for id_, entry, updated in results:
-            entry = cjson.decode(entry)
+            entry = loads(entry)
             entry['__id__'] = id_
             entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
             entries.append(entry)

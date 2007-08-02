@@ -6,7 +6,7 @@ import md5
 from paste import httpexceptions
 from paste.request import parse_dict_querystring, construct_url
 from httpencode import parse_request, get_format
-import cjson
+from simplejson import dumps, loads
 
 from jsonstore.backends import EntryManager
 
@@ -34,9 +34,11 @@ class JSONStore(object):
     A RESTful store based on JSON.
 
     """
-    def __init__(self, dsn):
+    def __init__(self, dsn, responder=None):
         self.em = EntryManager(dsn)
-        self.format = get_format('json')
+
+        if responder is None: responder = get_format('json').responder
+        self.responder = responder
 
     def __call__(self, environ, start_response):
         func = getattr(self, '_%s' % environ['REQUEST_METHOD'])
@@ -47,7 +49,7 @@ class JSONStore(object):
         path_info = environ.get('PATH_INFO', '/')
         path_info = unquote(path_info)
         path_info = path_info.strip('/') or 'null'  # use null if path is /
-        obj = cjson.decode(path_info)
+        obj = loads(path_info)
         
         # Single entry.
         if isinstance(obj, (int, long, float, basestring)): 
@@ -67,7 +69,8 @@ class JSONStore(object):
                 entries = self.em.get_entries(size+1, offset)
             # Return a JSON search.
             else:
-                entries = self.em.search(obj, re.IGNORECASE, size+1, offset)
+                mode = int(query.get("search", 0))
+                entries = self.em.search(obj, mode, size+1, offset)
 
             # Check number of entries for a "next" entry.
             if len(entries) == size+1:
@@ -82,10 +85,10 @@ class JSONStore(object):
 
         # Calculate etag.
         if '__etag__' in output: del output['__etag__'] 
-        etag = md5.new(cjson.encode(output)).hexdigest()
+        etag = md5.new(dumps(output)).hexdigest()
         output['__etag__'] = etag
 
-        app = self.format.responder(output,
+        app = self.responder(output,
                 content_type='application/json',
                 headers=[('Etag', etag)])
         return app(environ, start_response)
@@ -99,7 +102,7 @@ class JSONStore(object):
         # Generate new resource location.
         store = construct_url(environ, with_query_string=False, with_path_info=False)
         location = urljoin(store, str(output['__id__']))
-        app = self.format.responder(output,
+        app = self.responder(output,
                 content_type='application/json',
                 headers=[('Location', location)])
 
@@ -123,10 +126,10 @@ class JSONStore(object):
         output = self.em.update_entry(entry)
 
         # Calculate etag.
-        etag = md5.new(cjson.encode(output)).hexdigest()
+        etag = md5.new(dumps(output)).hexdigest()
         output['__etag__'] = etag
 
-        app = self.format.responder(output,
+        app = self.responder(output,
                 content_type='application/json',
                 headers=[('Etag', etag)])
         return app(environ, start_response)
@@ -138,7 +141,7 @@ class JSONStore(object):
 
         self.em.delete_entry(id_)
 
-        app = self.format.responder(None, content_type='application/json')
+        app = self.responder(None, content_type='application/json')
         return app(environ, start_response)
 
     def close(self):

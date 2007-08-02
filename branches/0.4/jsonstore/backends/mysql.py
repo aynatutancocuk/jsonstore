@@ -4,7 +4,7 @@ import operator
 import threading
 LOCAL = threading.local()
 
-import cjson
+from simplejson import loads, dumps
 from MySQLdb import connect
 
 
@@ -82,7 +82,7 @@ class EntryManager(object):
         curs.execute("""
             INSERT INTO store (entry)
             VALUES (%s);
-        """, (cjson.encode(entry),))
+        """, (dumps(entry),))
         id_ = curs.lastrowid
 
         # Index entry.
@@ -107,7 +107,7 @@ class EntryManager(object):
         """, (key,))
         id_, entry, updated = curs.fetchone()
         
-        entry = cjson.decode(entry)
+        entry = loads(entry)
         entry['__id__'] = id_
         entry['__updated__'] = updated
         
@@ -125,7 +125,7 @@ class EntryManager(object):
 
         entries = []
         for id_, entry, updated in curs.fetchall():
-            entry = cjson.decode(entry)
+            entry = loads(entry)
             entry['__id__'] = id_
             entry['__updated__'] = updated
             entries.append(entry)
@@ -156,7 +156,7 @@ class EntryManager(object):
             UPDATE store
             SET entry=%s
             WHERE id=%s;
-        """, (cjson.encode(new_entry), new_entry['__id__']))
+        """, (dumps(new_entry), new_entry['__id__']))
 
         # Rebuild index.
         curs.execute("""
@@ -175,7 +175,7 @@ class EntryManager(object):
         
         return self.get_entry(id_)
 
-    def search(self, obj, flags=0, size=None, offset=0):
+    def search(self, obj, mode=0, size=None, offset=0):
         """
         Search database using a JSON object.
         
@@ -202,13 +202,16 @@ class EntryManager(object):
             group = list(group)
             unused = [params.extend(t) for t in group]
 
-            # Regular expressions.
-            if flags == -1:
+            # Search mode.
+            if mode == 0:
                 # Plain match w/o regexp.
                 subquery = ["(position=%s AND leaf=%s)" for t in group]
-            else:
-                # We do not support Python re's flags, sorry.
-                subquery = ["(position=%s AND leaf REGEXP(%s))" for t in group]
+            elif mode == 1:
+                # LIKE search.
+                subquery = ["(position=%s AND leaf LIKE %s)" for t in group]
+            elif mode == 2:
+                # Regular expressions.
+                subquery = ["(position=%s AND leaf REGEXP %s)" for t in group]
 
             condition.append(' OR '.join(subquery))
             count += len(unused)
@@ -224,7 +227,7 @@ class EntryManager(object):
 
         entries = []
         for id_, entry, updated in results:
-            entry = cjson.decode(entry)
+            entry = loads(entry)
             entry['__id__'] = id_
             entry['__updated__'] = updated
             entries.append(entry)
