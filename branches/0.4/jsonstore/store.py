@@ -2,6 +2,7 @@ import re
 from urllib import unquote
 from urlparse import urljoin
 import md5
+import datetime
 
 from paste import httpexceptions
 from paste.request import parse_dict_querystring, construct_url
@@ -36,9 +37,7 @@ class JSONStore(object):
     """
     def __init__(self, dsn, responder=None):
         self.em = EntryManager(dsn)
-
-        if responder is None: responder = get_format('json').responder
-        self.responder = responder
+        self.responder = responder or get_format('json').responder
 
     def __call__(self, environ, start_response):
         func = getattr(self, '_%s' % environ['REQUEST_METHOD'])
@@ -96,11 +95,17 @@ class JSONStore(object):
     def _POST(self, environ, start_response):
         entry = parse_request(environ, output_type='python')
 
+        # Change __updated__ to a datetime object.
+        if '__updated__' in entry:
+            entry['__updated__'] = datetime.datetime.strptime(
+                    entry['__updated__'], '%Y-%m-%dT%H:%M:%SZ')
+
         # Create the entry.
         output = self.em.create_entry(entry)
 
         # Generate new resource location.
-        store = construct_url(environ, with_query_string=False, with_path_info=False)
+        store = construct_url(environ, with_query_string=False,
+                with_path_info=False)
         location = urljoin(store, str(output['__id__']))
         app = self.responder(output,
                 content_type='application/json',
@@ -114,6 +119,11 @@ class JSONStore(object):
 
     def _PUT(self, environ, start_response):
         entry = parse_request(environ, output_type='python')
+
+        # Change __updated__ to a datetime object.
+        if '__updated__' in entry:
+            entry['__updated__'] = datetime.datetime.strptime(
+                    entry['__updated__'], '%Y-%m-%dT%H:%M:%SZ')
 
         path_info = environ.get('PATH_INFO', '/')
         path_info = path_info.strip('/')

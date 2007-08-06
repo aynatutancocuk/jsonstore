@@ -21,7 +21,7 @@ This package contains a WSGI app implementing a REST store accessible through a 
           # -*- Extra requirements: -*-
           'Paste',
           'httpencode',
-          'python-cjson',
+          'simplejson',
       ],
       extras_require={
           'mysql': ['MySQLdb'],

@@ -6,7 +6,7 @@ import datetime
 import threading
 LOCAL = threading.local()
 
-from simplejson import loads, dumps
+from simplejson import loads, dumps, JSONEncoder
 from pysqlite2 import dbapi2 as sqlite
 
 
@@ -35,16 +35,19 @@ class EntryManager(object):
 
     @property
     def conn(self):
-        if not hasattr(LOCAL, "connection"):
-            LOCAL.connection = sqlite.connect(self.location, 
+        if not hasattr(LOCAL, 'connections'):
+            LOCAL.connections = {}
+
+        if self.location not in LOCAL.connections:
+            LOCAL.connections[self.location] = sqlite.connect(self.location, 
                     detect_types=sqlite.PARSE_DECLTYPES|sqlite.PARSE_COLNAMES)
-        return LOCAL.connection
+        return LOCAL.connections[self.location]
 
     def _create_table(self):
         curs = self.conn.cursor()
         curs.execute("""
             CREATE TABLE store (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                 entry TEXT,
                 updated timestamp);
         """)
@@ -67,14 +70,28 @@ class EntryManager(object):
 
         curs = self.conn.cursor()
 
+        # __id__ and __updated__ can be overriden.
+        if '__id__' in entry:
+            # id must be an integer.
+            id_ = int(entry.pop('__id__'))
+        else:
+            id_ = None
+        if '__updated__' in entry:
+            updated = entry.pop('__updated__')
+        else:
+            updated = datetime.datetime.utcnow()
+
         # Store entry.
         curs.execute("""
-            INSERT INTO store (entry, updated)
-            VALUES (?, ?);
-        """, (dumps(entry), datetime.datetime.utcnow()))
+            INSERT INTO store (id, entry, updated)
+            VALUES (?, ?, ?);
+        """, (id_, dumps(entry), updated))
         id_ = curs.lastrowid
 
-        # Index entry.
+        # Index entry. We add some metadata (id, updated) and
+        # put it on the flat table.
+        entry['__id__'] = id_
+        entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
         indices = [(id_, k, v) for (k, v) in flatten(entry)]
         curs.executemany("""
             INSERT INTO flat (id, position, leaf)
@@ -96,7 +113,7 @@ class EntryManager(object):
         
         entry = loads(entry)
         entry['__id__'] = id_
-        entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
+        entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
         
         return entry
 
@@ -113,7 +130,7 @@ class EntryManager(object):
         for id_, entry, updated in curs.fetchall():
             entry = loads(entry)
             entry['__id__'] = id_
-            entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
+            entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
             entries.append(entry)
 
         return entries
@@ -134,24 +151,33 @@ class EntryManager(object):
         self.conn.commit()
 
     def update_entry(self, new_entry): 
-        assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+        assert isinstance(new_entry, dict), "Entry must be instance of ``dict``!"
 
         curs = self.conn.cursor()
+
+        # __updated__ can be overriden.
+        if '__updated__' in new_entry:
+            updated = new_entry.pop('__updated__')
+        else:
+            updated = datetime.datetime.utcnow()
+        id_ = int(new_entry.pop('__id__'))
 
         curs.execute("""
             UPDATE store
             SET entry=?, updated=?
             WHERE id=?;
-        """, (dumps(new_entry), datetime.datetime.utcnow(), new_entry['__id__']))
+        """, (dumps(new_entry), updated, id_))
 
         # Rebuild index.
         curs.execute("""
             DELETE FROM flat
             WHERE id=?;
-        """, new_entry['__id__'])
+        """, (id_,))
         
         # Index entry.
-        indices = [(new_entry['__id__'], k, v) for (k, v) in flatten(new_entry)]
+        new_entry['__id__'] = id_
+        new_entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
+        indices = [(id_, k, v) for (k, v) in flatten(new_entry)]
         curs.executemany("""
             INSERT INTO flat (id, position, leaf)
             VALUES (?, ?, ?);
@@ -213,7 +239,7 @@ class EntryManager(object):
         for id_, entry, updated in results:
             entry = loads(entry)
             entry['__id__'] = id_
-            entry['__updated__'] = updated.isoformat()[:-4] + 'Z'
+            entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
             entries.append(entry)
 
         return entries
