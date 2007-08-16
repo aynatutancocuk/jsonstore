@@ -138,8 +138,7 @@ class EntryManager(object):
         curs = self.conn.cursor()
         curs.execute("SET SESSION time_zone = 'SYSTEM';")
 
-        query = ["SELECT id, entry, DATE_FORMAT(updated, '%%Y-%%m-%%dT%%TZ') FROM store"]
-        query.append("ORDER BY updated DESC")
+        query = ["SELECT id, entry, DATE_FORMAT(updated, '%Y-%m-%dT%TZ') FROM store ORDER BY updated DESC"]
         if size is not None: query.append("LIMIT %s" % size)
         if offset: query.append("OFFSET %s" % offset)
         curs.execute(' '.join(query))
