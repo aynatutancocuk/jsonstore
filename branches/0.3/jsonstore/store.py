@@ -88,9 +88,11 @@ class JSONStore(object):
             # Check number of entries for a "next" entry.
             if len(entries) == size+1:
                 entries.pop()  # remove "next" entry
-                output['jep:next'] = construct_url(environ,
-                        querystring="size=%d&offset=%d" %
-                        (size, offset+size))
+                qs = query.copy()
+                qs['size'] = str(size)
+                qs['offset'] = str(offset+size)
+                qs = '&'.join(['%s=%s' % p for p in qs.items()])
+                output['jep:next'] = construct_url(environ, querystring=qs)
             else:
                 output['jep:next'] = None
 
