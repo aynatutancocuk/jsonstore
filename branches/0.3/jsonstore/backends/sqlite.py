@@ -27,7 +27,6 @@ def flatten(obj, keys=[]):
 
 class EntryManager(object):
     def __init__(self, location):
-        # Create connection.
         self.location = location
 
         # Create table if it doesn't exist.
@@ -78,14 +77,22 @@ class EntryManager(object):
             id_ = None
         if '__updated__' in entry:
             updated = entry.pop('__updated__')
+            if not isinstance(updated, datetime.datetime):
+                updated = datetime.datetime.strptime(
+                        updated, '%Y-%m-%dT%H:%M:%SZ')
         else:
             updated = datetime.datetime.utcnow()
 
         # Store entry.
-        curs.execute("""
-            INSERT INTO store (id, entry, updated)
-            VALUES (?, ?, ?);
-        """, (id_, dumps(entry), updated))
+        try:
+            curs.execute("""
+                INSERT INTO store (id, entry, updated)
+                VALUES (?, ?, ?);
+            """, (id_, dumps(entry), updated))
+        except sqlite.IntegrityError:
+            # Avoid database lockup.
+            self.conn.rollback()
+            raise
         id_ = curs.lastrowid
 
         # Index entry. We add some metadata (id, updated) and
@@ -158,6 +165,9 @@ class EntryManager(object):
         # __updated__ can be overriden.
         if '__updated__' in new_entry:
             updated = new_entry.pop('__updated__')
+            if not isinstance(updated, datetime.datetime):
+                updated = datetime.datetime.strptime(
+                        updated, '%Y-%m-%dT%H:%M:%SZ')
         else:
             updated = datetime.datetime.utcnow()
         id_ = int(new_entry.pop('__id__'))
@@ -199,10 +209,9 @@ class EntryManager(object):
         # Flatten the JSON key object.
         pairs = list(flatten(obj))
         pairs.sort()
-        groups = list(itertools.groupby(pairs, operator.itemgetter(0)))
+        groups = itertools.groupby(pairs, operator.itemgetter(0))
 
         query = ["SELECT store.id, store.entry, store.updated FROM store LEFT JOIN flat ON store.id=flat.id"]
-        if groups: query.append("WHERE")
         condition = []
         params = []
 
@@ -225,8 +234,10 @@ class EntryManager(object):
 
             condition.append(' OR '.join(subquery))
             count += len(unused)
-        # Join all conditions with an AND.
-        query.append(' OR '.join(condition))
+        # Join all conditions with an OR.
+        if condition:
+            query.append("WHERE")
+            query.append(' OR '.join(condition))
         if count: query.append('GROUP BY store.id HAVING count(*)=%d' % count)
         query.append("ORDER BY store.updated DESC")
         if size is not None: query.append("LIMIT %s" % size)
