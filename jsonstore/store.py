@@ -2,6 +2,7 @@ from urllib import unquote
 from urlparse import urljoin
 import md5
 import datetime
+import time
 
 from paste import httpexceptions
 from paste.request import parse_dict_querystring, construct_url
@@ -126,8 +127,8 @@ class JSONStore(object):
         # Change __updated__ to a datetime object.
         if 'jsonstore:updated' in entry:
             updated = entry.pop('jsonstore:updated')
-            entry['__updated__'] = datetime.datetime.strptime(
-                    updated, '%Y-%m-%dT%H:%M:%SZ')
+            entry['__updated__'] = datetime.datetime(
+                    *(time.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
         if 'jsonstore:id' in entry:
             entry['__id__'] = entry.pop('jsonstore:id')
 
@@ -159,8 +160,8 @@ class JSONStore(object):
         # Change __updated__ to a datetime object.
         if 'jsonstore:updated' in entry:
             updated = entry.pop('jsonstore:updated')
-            entry['__updated__'] = datetime.datetime.strptime(
-                    updated, '%Y-%m-%dT%H:%M:%SZ')
+            entry['__updated__'] = datetime.datetime(
+                    *(time.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
 
         path_info = environ.get('PATH_INFO', '/')
         path_info = path_info.strip('/')
