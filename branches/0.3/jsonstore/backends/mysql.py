@@ -91,8 +91,8 @@ class EntryManager(object):
         if '__updated__' in entry:
             updated = entry.pop('__updated__')
             if not isinstance(updated, datetime.datetime):
-                updated = datetime.datetime.strptime(
-                        updated, '%Y-%m-%dT%H:%M:%SZ')
+                updated = datetime.datetime(
+                    *(time.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
         else:
             updated = datetime.datetime.utcnow()
 
@@ -177,8 +177,8 @@ class EntryManager(object):
         if '__updated__' in new_entry:
             updated = new_entry.pop('__updated__')
             if not isinstance(updated, datetime.datetime):
-                updated = datetime.datetime.strptime(
-                        updated, '%Y-%m-%dT%H:%M:%SZ')
+                updated = datetime.datetime(
+                    *(time.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
         else:
             updated = datetime.datetime.utcnow()
         id_ = int(new_entry.pop('__id__'))
