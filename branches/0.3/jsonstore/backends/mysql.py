@@ -168,7 +168,7 @@ class EntryManager(object):
         self.conn.commit()
 
     def update_entry(self, new_entry): 
-        assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+        assert isinstance(new_entry, dict), "Entry must be instance of ``dict``!"
 
         curs = self.conn.cursor()
 
