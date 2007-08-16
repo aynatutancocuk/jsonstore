@@ -40,7 +40,10 @@ class JSONStore(object):
         self.responder = responder or get_format('json').responder
 
     def __call__(self, environ, start_response):
-        func = getattr(self, '_%s' % environ['REQUEST_METHOD'])
+        query = parse_dict_querystring(environ)
+        method = (query.get('REQUEST_METHOD') or
+                environ['REQUEST_METHOD'])
+        func = getattr(self, '_%s' % method)
         return func(environ, start_response)
 
     def _GET(self, environ, start_response):
@@ -120,6 +123,10 @@ class JSONStore(object):
                 content_type='application/json',
                 headers=[('Etag', etag)])
         return app(environ, start_response)
+
+    def _HEAD(self, environ, start_response):
+        self._GET(environ, start_response)
+        return []
 
     def _POST(self, environ, start_response):
         entry = parse_request(environ, output_type='python')
