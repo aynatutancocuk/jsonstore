@@ -1,4 +1,3 @@
-import re
 from urllib import unquote
 from urlparse import urljoin
 import md5
@@ -12,10 +11,7 @@ from simplejson import dumps, loads
 from jsonstore.backends import EntryManager
 
 
-DEFAULT_NUMBER_OF_ENTRIES = 10
-
-
-def make_app(global_conf, dsn, **kwargs):
+def make_app(global_conf, dsn, number_of_entries=10, **kwargs):
     """
     Create a JSON Atom store.
 
@@ -24,9 +20,11 @@ def make_app(global_conf, dsn, **kwargs):
         [app:jsonstore]
         use = egg:jsonstore
         dsn = driver://user:password@host:port/dbname
+        number_of_entries = 10
 
     """
-    store = JSONStore(dsn)
+    noe = int(number_of_entries)
+    store = JSONStore(dsn, number_of_entries=noe)
     return store
 
 
@@ -35,8 +33,9 @@ class JSONStore(object):
     A RESTful store based on JSON.
 
     """
-    def __init__(self, dsn, responder=None):
+    def __init__(self, dsn, number_of_entries=10, responder=None):
         self.em = EntryManager(dsn)
+        self.number_of_entries = number_of_entries
         self.responder = responder or get_format('json').responder
 
     def __call__(self, environ, start_response):
@@ -54,16 +53,17 @@ class JSONStore(object):
         if isinstance(obj, (int, long, float, basestring)): 
             try:
                 output = self.em.get_entry(obj)
-                output.setdefault('@namespaces', {})
-                output['jsonstore:id'] = output.pop('__id__')
-                output['jsonstore:updated'] = output.pop('__updated__')
             except (KeyError, TypeError):
                 raise httpexceptions.HTTPNotFound()  # 404
+
+            output.setdefault('@namespaces', {})
+            output['jsonstore:id'] = output.pop('__id__')
+            output['jsonstore:updated'] = output.pop('__updated__')
 
         # Collection from listing or search.
         else:
             query = parse_dict_querystring(environ)
-            size = int(query.get("size", DEFAULT_NUMBER_OF_ENTRIES))
+            size = int(query.get("size", self.number_of_entries))
             offset = int(query.get("offset", 0))
 
             # Return store listing.

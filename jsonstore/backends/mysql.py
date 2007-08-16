@@ -1,6 +1,7 @@
 import urllib
 import itertools
 import operator
+import datetime
 import threading
 LOCAL = threading.local()
 
@@ -43,17 +44,20 @@ def flatten(obj, keys=[]):
 
 class EntryManager(object):
     def __init__(self, location):
-        # Create connection.
-        self.params = split_location(location)
+        self.location = location
 
         # Create table if it doesn't exist.
         self._create_table()
 
     @property
     def conn(self):
-        if not hasattr(LOCAL, "connection"):
-            LOCAL.connection = connect(**self.params)
-        return LOCAL.connection
+        if not hasattr(LOCAL, "connections"):
+            LOCAL.connections = {}
+
+        if self.location not in LOCAL.connections:
+            params = split_location(self.location)
+            LOCAL.connections[self.location] = connect(**params)
+        return LOCAL.connections[self.location]
 
     def _create_table(self):
         curs = self.conn.cursor()
@@ -78,14 +82,31 @@ class EntryManager(object):
 
         curs = self.conn.cursor()
 
+        # __id__ and __updated__ can be overriden.
+        if '__id__' in entry:
+            # id must be an integer.
+            id_ = int(entry.pop('__id__'))
+        else:
+            id_ = None
+        if '__updated__' in entry:
+            updated = entry.pop('__updated__')
+            if not isinstance(updated, datetime.datetime):
+                updated = datetime.datetime.strptime(
+                        updated, '%Y-%m-%dT%H:%M:%SZ')
+        else:
+            updated = datetime.datetime.utcnow()
+
         # Store entry.
         curs.execute("""
-            INSERT INTO store (entry)
-            VALUES (%s);
-        """, (dumps(entry),))
+            INSERT INTO store (id, entry, updated)
+            VALUES (%s, %s, %s);
+        """, (id_, dumps(entry), updated))
         id_ = curs.lastrowid
 
-        # Index entry.
+        # Index entry. We add some metadata (id, updated) and
+        # put it on the flat table.
+        entry['__id__'] = id_
+        entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
         indices = [(id_, k, v) for (k, v) in flatten(entry)]
         curs.executemany("""
             INSERT INTO flat (id, position, leaf)
@@ -152,20 +173,32 @@ class EntryManager(object):
 
         curs = self.conn.cursor()
 
+        # __updated__ can be overriden.
+        if '__updated__' in new_entry:
+            updated = new_entry.pop('__updated__')
+            if not isinstance(updated, datetime.datetime):
+                updated = datetime.datetime.strptime(
+                        updated, '%Y-%m-%dT%H:%M:%SZ')
+        else:
+            updated = datetime.datetime.utcnow()
+        id_ = int(new_entry.pop('__id__'))
+
         curs.execute("""
             UPDATE store
-            SET entry=%s
+            SET entry=%s, updated=%s
             WHERE id=%s;
-        """, (dumps(new_entry), new_entry['__id__']))
+        """, (dumps(new_entry), updated, id_))
 
         # Rebuild index.
         curs.execute("""
             DELETE FROM flat
             WHERE id=%s;
-        """, new_entry['__id__'])
+        """, (id_,))
         
         # Index entry.
-        indices = [(new_entry['__id__'], k, v) for (k, v) in flatten(new_entry)]
+        new_entry['__id__'] = id_
+        new_entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
+        indices = [(id_, k, v) for (k, v) in flatten(new_entry)]
         curs.executemany("""
             INSERT INTO flat (id, position, leaf)
             VALUES (%s, %s, %s);
@@ -188,10 +221,9 @@ class EntryManager(object):
         # Flatten the JSON key object.
         pairs = list(flatten(obj))
         pairs.sort()
-        groups = list(itertools.groupby(pairs, operator.itemgetter(0)))
+        groups = itertools.groupby(pairs, operator.itemgetter(0))
 
         query = ["SELECT store.id, store.entry, DATE_FORMAT(store.updated, '%%Y-%%m-%%dT%%TZ') FROM store LEFT JOIN flat ON store.id=flat.id"]
-        if groups: query.append("WHERE")
         condition = []
         params = []
 
@@ -215,8 +247,10 @@ class EntryManager(object):
 
             condition.append(' OR '.join(subquery))
             count += len(unused)
-        # Join all conditions with an AND.
-        query.append(' OR '.join(condition))
+        # Join all conditions with an OR.
+        if condition:
+            query.append("WHERE")
+            query.append(' OR '.join(condition))
         if count: query.append('GROUP BY store.id HAVING count(*)=%d' % count)
         query.append("ORDER BY store.updated DESC")
         if size is not None: query.append("LIMIT %s" % size)
