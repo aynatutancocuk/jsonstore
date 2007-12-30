@@ -154,18 +154,20 @@ class EntryManager(object):
         count = 0
         for (key, group) in groups:
             group = list(group)
-            leaves = [params.extend(t) for t in group]
+            subquery = []
+            for t in group:
+                params.extend(t)
 
-            # Search mode.
-            if mode == 0:    # plain match
-                subquery = ["(position=? AND leaf=?)" for t in group]
-            elif mode == 1:  # LIKE search
-                subquery = ["(position=? AND leaf LIKE ?)" for t in group]
-            else:
-                raise Exception("Search mode %d not supported!" % mode)
+                # Search mode.
+                if mode == 0:    # plain match
+                    subquery.append("(position=? AND leaf=?)")
+                elif mode == 1:  # LIKE search
+                    subquery.append("(position=? AND leaf LIKE ?)")
+                else:
+                    raise Exception("Search mode %d not supported!" % mode)
 
             condition.append(' OR '.join(subquery))
-            count += len(leaves)
+            count += len(group)
         # Join all conditions with an OR.
         if condition:
             query.append("WHERE")
