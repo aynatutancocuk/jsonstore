@@ -1,6 +1,10 @@
 import operator
 import re
 
+__all__ = ['Operator', 'Equal', 'NotEqual', 'GreaterThan', 'LessThan',
+           'GreaterEqual', 'LessEqual', 'Between', 'In', 'Like',
+           'RegExp']
+
 
 class Operator(object):
     pass
