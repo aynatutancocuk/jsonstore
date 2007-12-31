@@ -9,6 +9,8 @@ import threading
 from simplejson import loads, dumps
 from pysqlite2 import dbapi2 as sqlite
 
+from jsonstore.operators import Operator, Equal
+
 
 LOCAL = threading.local()
 if not hasattr(LOCAL, 'connections'):
@@ -40,7 +42,7 @@ class EntryManager(object):
             CREATE TABLE flat (
                 id INTEGER,
                 position CHAR(255),
-                leaf TEXT
+                leaf NUMERIC
             );
 
             CREATE INDEX position ON flat (position);
@@ -155,19 +157,15 @@ class EntryManager(object):
         for (key, group) in groups:
             group = list(group)
             subquery = []
-            for t in group:
-                params.extend(t)
-
-                # Search mode.
-                if mode == 0:    # plain match
-                    subquery.append("(position=? AND leaf=?)")
-                elif mode == 1:  # LIKE search
-                    subquery.append("(position=? AND leaf LIKE ?)")
-                else:
-                    raise Exception("Search mode %d not supported!" % mode)
+            for position, leaf in group:
+                params.append(position)
+                if not isinstance(leaf, Operator):
+                    leaf = Equal(leaf)
+                subquery.append("(position=? AND leaf %s)" % leaf)
+                params.extend(leaf.params)
+                count += 1
 
             condition.append(' OR '.join(subquery))
-            count += len(group)
         # Join all conditions with an OR.
         if condition:
             query.append("WHERE")
@@ -204,7 +202,7 @@ def format(results):
 
 def flatten(obj, keys=[]):
     key = '.'.join(keys)
-    if isinstance(obj, (int, float, long, basestring)):
+    if isinstance(obj, (int, float, long, basestring, Operator)):
         yield key, obj
     else:
         if isinstance(obj, list):
