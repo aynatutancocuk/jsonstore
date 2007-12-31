@@ -5,6 +5,7 @@ import operator
 from datetime import datetime
 import time
 import threading
+import re
 
 from simplejson import loads, dumps
 from pysqlite2 import dbapi2 as sqlite
@@ -13,8 +14,13 @@ from jsonstore.operators import Operator, Equal
 
 
 LOCAL = threading.local()
-if not hasattr(LOCAL, 'connections'):
-    LOCAL.connections = {}
+if not hasattr(LOCAL, 'conns'):
+    LOCAL.conns = {}
+
+
+def regexp(expr, item):
+    p = re.compile(expr)
+    return p.match(item) is not None
 
 
 class EntryManager(object):
@@ -25,10 +31,11 @@ class EntryManager(object):
 
     @property
     def conn(self):
-        if self.location not in LOCAL.connections:
-            LOCAL.connections[self.location] = sqlite.connect(self.location, 
+        if self.location not in LOCAL.conns:
+            LOCAL.conns[self.location] = sqlite.connect(self.location, 
                     detect_types=sqlite.PARSE_DECLTYPES|sqlite.PARSE_COLNAMES)
-        return LOCAL.connections[self.location]
+        LOCAL.conns[self.location].create_function("regexp", 2, regexp)
+        return LOCAL.conns[self.location]
 
     def _create_table(self):
         curs = self.conn.cursor()
@@ -186,7 +193,7 @@ class EntryManager(object):
 
     def close(self):
         self.conn.close()
-        del LOCAL.connections[self.location]
+        del LOCAL.conns[self.location]
 
 
 def format(results):
