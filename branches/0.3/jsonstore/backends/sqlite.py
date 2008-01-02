@@ -7,6 +7,7 @@ import time
 import threading
 import re
 
+from uuid import uuid4
 from simplejson import loads, dumps
 from pysqlite2 import dbapi2 as sqlite
 
@@ -18,6 +19,7 @@ if not hasattr(LOCAL, 'conns'):
     LOCAL.conns = {}
 
 
+# http://lists.initd.org/pipermail/pysqlite/2005-November/000253.html
 def regexp(expr, item):
     p = re.compile(expr)
     return p.match(item) is not None
@@ -41,17 +43,17 @@ class EntryManager(object):
         curs = self.conn.cursor()
         curs.executescript("""
             CREATE TABLE store (
-                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                id VARCHAR(255) NOT NULL,
                 entry TEXT,
                 updated timestamp
             );
+            CREATE INDEX id ON store (id);
 
             CREATE TABLE flat (
-                id INTEGER,
+                id VARCHAR(255),
                 position CHAR(255),
                 leaf NUMERIC
             );
-
             CREATE INDEX position ON flat (position);
         """)
         self.conn.commit()
@@ -60,7 +62,7 @@ class EntryManager(object):
         assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
 
         # __id__ and __updated__ can be overriden.
-        id_ = entry.pop('__id__', None)
+        id_ = entry.pop('__id__', str(uuid4()))
         updated = entry.pop('__updated__',
                 datetime.utcnow())
         if not isinstance(updated, datetime):
@@ -78,7 +80,6 @@ class EntryManager(object):
             # Avoid database lockup.
             self.conn.rollback()
             raise
-        id_ = curs.lastrowid
 
         # Index entry. We add some metadata (id, updated) and
         # put it on the flat table.
@@ -207,10 +208,14 @@ def format(results):
     return entries
 
 
+def quote_(name):
+    return urllib.quote(name).replace('.', '%2E')
+
+
 def flatten(obj, keys=[]):
     key = '.'.join(keys)
     if isinstance(obj, (int, float, long, basestring, Operator)):
-        yield key, obj
+        yield key, quote_(obj)
     else:
         if isinstance(obj, list):
             for item in obj:
@@ -218,5 +223,5 @@ def flatten(obj, keys=[]):
                     yield pair
         elif isinstance(obj, dict):
             for k, v in obj.items():
-                for pair in flatten(v, keys + [k]):
+                for pair in flatten(v, keys + [quote_(k)]):
                     yield pair
