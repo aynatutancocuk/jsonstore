@@ -209,7 +209,10 @@ def format(results):
 
 
 def quote_(name):
-    return urllib.quote(name).replace('.', '%2E')
+    try:
+        return urllib.quote(name).replace('.', '%2E')
+    except TypeError:
+        return name
 
 
 def flatten(obj, keys=[]):
