@@ -5,7 +5,7 @@ version = '0.3'
 
 setup(name='jsonstore',
       version=version,
-      description="A RESTful store for JSON objects.",
+      description="A RESTful exposed database for arbitraty JSON objects.",
       long_description="""\
 This package contains a WSGI app implementing a REST store accessible through a JSON syntax.""",
       classifiers=[], # Get strings from http://www.python.org/pypi?%3Aaction=list_classifiers
@@ -20,8 +20,9 @@ This package contains a WSGI app implementing a REST store accessible through a 
       install_requires=[
           # -*- Extra requirements: -*-
           'Paste',
-          'httpencode',
+          'WebOb',
           'simplejson',
+          'uuid',
       ],
       extras_require={
           'mysql': ['MySQLdb'],

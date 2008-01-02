@@ -3,7 +3,7 @@ import re
 
 __all__ = ['Operator', 'Equal', 'NotEqual', 'GreaterThan', 'LessThan',
            'GreaterEqual', 'LessEqual', 'Between', 'In', 'Like',
-           'RegExp']
+           'RegExp', 'Exists']
 
 
 class Operator(object):
@@ -16,7 +16,7 @@ def OperatorFactory(op, func):
             self.value = value
             self.params = [value]
 
-        def __call__(self, item):
+        def __eq__(self, item):
             return func(item, self.value)
 
         def __str__(self):
@@ -38,7 +38,7 @@ class Between(Operator):
         self.end = end
         self.params = self.start, self.end
 
-    def __call__(self, item):
+    def __eq__(self, item):
         return self.start <= item < self.end
 
     def __str__(self):
@@ -49,7 +49,7 @@ class In(Operator):
     def __init__(self, *args):
         self.params = args
 
-    def __call__(self, item):
+    def __eq__(self, item):
         return item in self.params
 
     def __str__(self):
@@ -64,7 +64,7 @@ class Like(Operator):
         pattern = re.escape(value).replace(r'\%', '.*').replace(r'\_', '.')
         self.regexp = re.compile(pattern)
 
-    def __call__(self, item):
+    def __eq__(self, item):
         return self.regexp.match(item) is not None
 
     def __str__(self):
@@ -76,8 +76,19 @@ class RegExp(Operator):
         self.params = [value]
         self.regexp = re.compile(value)
 
-    def __call__(self, item):
+    def __eq__(self, item):
         return self.regexp.match(item) is not None
 
     def __str__(self):
         return "REGEXP ?"
+
+
+class Exists(Operator):
+    def __init__(self):
+        self.params = []
+
+    def __eq__(self, item):
+        return item is not None
+
+    def __str__(self):
+        return "NOTNULL"
