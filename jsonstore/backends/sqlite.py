@@ -4,19 +4,15 @@ import itertools
 import operator
 from datetime import datetime
 import time
-import threading
 import re
+import threading
+LOCAL = threading.local()
 
 from uuid import uuid4
 from simplejson import loads, dumps
 from pysqlite2 import dbapi2 as sqlite
 
 from jsonstore.operators import Operator, Equal
-
-
-LOCAL = threading.local()
-if not hasattr(LOCAL, 'conns'):
-    LOCAL.conns = {}
 
 
 # http://lists.initd.org/pipermail/pysqlite/2005-November/000253.html
@@ -33,6 +29,9 @@ class EntryManager(object):
 
     @property
     def conn(self):
+        if not hasattr(LOCAL, 'conns'):
+            LOCAL.conns = {}
+
         if self.location not in LOCAL.conns:
             LOCAL.conns[self.location] = sqlite.connect(self.location, 
                     detect_types=sqlite.PARSE_DECLTYPES|sqlite.PARSE_COLNAMES)
@@ -139,7 +138,7 @@ class EntryManager(object):
         self.delete_entry(id_)
         return self.create_entry(new_entry)
 
-    def search(self, obj, mode=0, size=None, offset=0):
+    def search(self, obj, size=None, offset=0):
         """
         Search database using a JSON object.
         
