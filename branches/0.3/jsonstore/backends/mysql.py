@@ -33,13 +33,15 @@ class EntryManager(object):
 
     def _create_table(self):
         curs = self.conn.cursor()
-        curs.executescript("""
+        curs.execute("""
             CREATE TABLE IF NOT EXISTS store (
                 id VARCHAR(255) PRIMARY KEY NOT NULL,
                 entry TEXT,
                 updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX (id));
+        """)
 
+        curs.execute("""
             CREATE TABLE IF NOT EXISTS flat (
                 id VARCHAR(255),
                 position CHAR(255),
