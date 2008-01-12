@@ -191,7 +191,7 @@ class EntryManager(object):
 
         curs = self.conn.cursor()
         if count:
-            curs.execute("SELECT COUNT(*) FROM (%s)" % query, tuple(params))
+            curs.execute("SELECT COUNT(*) FROM (%s) AS ITEMS" % query, tuple(params))
             return curs.fetchone()[0]
         else:
             curs.execute(query, tuple(params))
