@@ -10,7 +10,7 @@ from uuid import uuid4
 from simplejson import loads, dumps
 from MySQLdb import connect
 
-from jsonstore.operators import Operator, Equal
+from jsonstore.operators import Operator, Equal, Exists
 from jsonstore import flatten
 
 
