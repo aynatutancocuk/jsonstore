@@ -27,6 +27,9 @@ class EntryManager(object):
         if not os.path.exists(location):
             self._create_table()
 
+    # Thread-safe connection manager. Conections are stored in the 
+    # ``threading.local`` object, so they can be safely reused in the
+    # same thread.
     @property
     def conn(self):
         if not hasattr(LOCAL, 'conns'):
@@ -57,8 +60,12 @@ class EntryManager(object):
         """)
         self.conn.commit()
 
-    def create_entry(self, entry):
-        assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+    def create(self, entry=None, **kwargs):
+        if entry is None:
+            entry = kwargs
+        else:
+            assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+            entry.update(kwargs)
 
         # __id__ and __updated__ can be overriden.
         id_ = entry.pop('__id__', str(uuid4()))
@@ -80,9 +87,7 @@ class EntryManager(object):
             self.conn.rollback()
             raise
 
-        # Index entry. We add some metadata (id, updated) and
-        # put it on the flat table.
-        entry['__id__'] = id_
+        # Index entry.
         entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
         indices = [(id_, k, v) for (k, v) in flatten(entry)]
         curs.executemany("""
@@ -90,35 +95,12 @@ class EntryManager(object):
             VALUES (?, ?, ?);
         """, indices)
         self.conn.commit()
-        
-        return self.get_entry(id_)
-        
-    def get_entry(self, key):
-        curs = self.conn.cursor()
-        curs.execute("""
-            SELECT id, entry, updated FROM store
-            WHERE id=?;
-        """, (key,))
-        id_, entry, updated = curs.fetchone()
-        
-        entry = loads(entry)
+
         entry['__id__'] = id_
-        entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
+        entry['__updated__'] = updated
         return entry
-
-    def get_entries(self, size=None, offset=0): 
-        query = ["SELECT id, entry, updated FROM store"]
-        query.append("ORDER BY updated DESC")
-        if size is not None:
-            query.append("LIMIT %s" % size)
-        if offset:
-            query.append("OFFSET %s" % offset)
-        curs = self.conn.cursor()
-        curs.execute(' '.join(query))
-
-        return format(curs.fetchall())
-
-    def delete_entry(self, key):
+        
+    def delete(self, key):
         curs = self.conn.cursor()
         curs.execute("""
             DELETE FROM store
@@ -131,36 +113,45 @@ class EntryManager(object):
         """, (key,))
         self.conn.commit()
 
-    def update_entry(self, new_entry): 
+    def update(self, new_entry): 
         assert isinstance(new_entry, dict), "Entry must be instance of ``dict``!"
 
         id_ = new_entry['__id__']
-        self.delete_entry(id_)
-        return self.create_entry(new_entry)
+        self.delete(id_)
+        return self.create(new_entry)
 
-    def search(self, obj, size=None, offset=0):
+    def search(self, obj=None, size=None, offset=0, count=False, **kwargs):
         """
         Search database using a JSON object.
         
-	The idea is here is to flatten the JSON object (the "key"),
-	and search the index table for each leaf of the key using
-	an OR. We then get those ids where the number of results
-	is equal to the number of leaves in the key, since these
-	objects match the whole key.
+        The idea is here is to flatten the JSON object (the "key"),
+        and search the index table for each leaf of the key using
+        an OR. We then get those ids where the number of results
+        is equal to the number of leaves in the key, since these
+        objects match the whole key.
         
         """
+        if obj is None:
+            obj = kwargs
+        else:
+            assert isinstance(obj, dict), "Search key must be instance of ``dict``!"
+            obj.update(kwargs)
+
+        # Check for id.
+        id_ = obj.pop('__id__', None)
+
         # Flatten the JSON key object.
         pairs = list(flatten(obj))
         pairs.sort()
         groups = itertools.groupby(pairs, operator.itemgetter(0))
 
-        query = ["SELECT store.id, store.entry, store.updated FROM store LEFT JOIN flat ON store.id=flat.id"]
+        query = ["SELECT DISTINCT store.id, store.entry, store.updated FROM store LEFT JOIN flat ON store.id=flat.id"]
         condition = []
         params = []
 
         # Check groups from groupby, they should be joined within
         # using an OR.
-        count = 0
+        leaves = 0
         for (key, group) in groups:
             group = list(group)
             subquery = []
@@ -170,26 +161,37 @@ class EntryManager(object):
                     leaf = Equal(leaf)
                 subquery.append("(position=? AND leaf %s)" % leaf)
                 params.extend(leaf.params)
-                count += 1
+                leaves += 1
 
             condition.append(' OR '.join(subquery))
-        # Join all conditions with an OR.
-        if condition:
+
+        # Build query.
+        if condition or id_ is not None:
             query.append("WHERE")
-            query.append(" OR ".join(condition))
-        if count:
-            query.append("GROUP BY store.id HAVING count(*)=%d" % count)
+        if id_ is not None:
+            query.append("store.id=?")
+            params.insert(0, id_)
+            if condition:
+                query.append("AND")
+        if condition:
+            # Join all conditions with an OR.
+            query.append("(%s)" % " OR ".join(condition))
+        if leaves:
+            query.append("GROUP BY store.id HAVING COUNT(*)=%d" % leaves)
         query.append("ORDER BY store.updated DESC")
         if size is not None:
             query.append("LIMIT %s" % size)
         if offset:
             query.append("OFFSET %s" % offset)
+        query = ' '.join(query)
 
         curs = self.conn.cursor()
-        curs.execute(' '.join(query), tuple(params))
-        results = curs.fetchall()
-
-        return format(results)
+        if count:
+            curs.execute("SELECT COUNT(*) FROM (%s)" % query, tuple(params))
+            return curs.fetchone()[0]
+        else:
+            curs.execute(query, tuple(params))
+            return format(curs.fetchall())
 
     def close(self):
         self.conn.close()
@@ -201,7 +203,7 @@ def format(results):
     for id_, entry, updated in results:
         entry = loads(entry)
         entry['__id__'] = id_
-        entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
+        entry['__updated__'] = updated
         entries.append(entry)
 
     return entries
@@ -218,12 +220,11 @@ def flatten(obj, keys=[]):
     key = '.'.join(keys)
     if isinstance(obj, (int, float, long, basestring, Operator)):
         yield key, quote_(obj)
-    else:
-        if isinstance(obj, list):
-            for item in obj:
-                for pair in flatten(item, keys):
-                    yield pair
-        elif isinstance(obj, dict):
-            for k, v in obj.items():
-                for pair in flatten(v, keys + [quote_(k)]):
-                    yield pair
+    elif isinstance(obj, list):
+        for item in obj:
+            for pair in flatten(item, keys):
+                yield pair
+    elif isinstance(obj, dict):
+        for k, v in obj.items():
+            for pair in flatten(v, keys + [quote_(k)]):
+                yield pair
