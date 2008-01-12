@@ -2,7 +2,7 @@ import re
 from urllib import unquote
 from urlparse import urljoin
 from datetime import datetime
-import sha
+from sha import sha
 
 from webob import Request, Response
 from simplejson import loads, dumps, JSONEncoder
@@ -43,7 +43,7 @@ class JSONStore(object):
 
         if isinstance(obj, (int, long, float, basestring)):
             try:
-                result = self.em.search({'__id__': obj}, size, offset)[0]
+                result = self.em.search(__id__=obj)[0]
                 items = 1
             except IndexError:
                 return Response(status='404 Not Found')
@@ -53,13 +53,15 @@ class JSONStore(object):
             result = self.em.search(obj, size, offset)
         
         body = dumps(result, cls=DatetimeEncoder)
-        if jsonp:
-            body = jsonp + '(' + body + ')'
-        etag = '"%s"' % sha.sha(body).hexdigest()
+        etag = '"%s"' % sha(body).hexdigest()
         if etag in req.if_none_match:
             return Response(status='304 Not Modified')
 
-        if req.method == 'HEAD': body = ''
+        if jsonp:
+            body = jsonp + '(' + body + ')'
+
+        if req.method == 'HEAD':
+            body = ''
 
         return Response(
                 body=body,
@@ -84,10 +86,19 @@ class JSONStore(object):
 
     def PUT(self, req):
         entry = load_entry(req.body)
+        url_id = req.path_info.lstrip('/')
         if '__id__' not in entry:
-            entry['__id__'] = req.path_info.lstrip('/')
-        elif req.path_info.lstrip('/') != entry['__id__']:
+            entry['__id__'] = url_id
+        elif url_id != entry['__id__']:
             return Response(status='409 Conflict')
+
+        # Conditional PUT.
+        old = self.em.search(__id__=url_id)[0]
+        etag = '"%s"' % sha(dumps(old, cls=DatetimeEncoder)).hexdigest()
+        if etag not in req.if_match or (
+                req.if_unmodified_since and 
+                req.if_unmodified_since < old['updated']):
+            return Response(status='412 Precondition Failed')
 
         result = self.em.update(entry)
         body = dumps(result, cls=DatetimeEncoder)
@@ -135,9 +146,10 @@ def parse_op(obj):
         return obj
 
     for op in operators.__all__:
-        if obj.startswith(op + '('):
+        m = re.match(op + r'\((.*?)\)', obj)
+        if m:
             operator = getattr(operators, op)
-            args = re.match(op + r'\((.*?)\)', obj).group(1)
+            args = m.group(1)
             args = loads('[' + args + ']')
             return operator(*args)
     return obj
