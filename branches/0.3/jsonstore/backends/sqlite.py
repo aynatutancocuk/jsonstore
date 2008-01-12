@@ -1,5 +1,4 @@
 import os.path
-import urllib
 import itertools
 import operator
 from datetime import datetime
@@ -13,6 +12,7 @@ from simplejson import loads, dumps
 from pysqlite2 import dbapi2 as sqlite
 
 from jsonstore.operators import Operator, Equal
+from jsonstore import flatten
 
 
 # http://lists.initd.org/pipermail/pysqlite/2005-November/000253.html
@@ -45,7 +45,7 @@ class EntryManager(object):
         curs = self.conn.cursor()
         curs.executescript("""
             CREATE TABLE store (
-                id VARCHAR(255) NOT NULL,
+                id VARCHAR(255) PRIMARY KEY NOT NULL,
                 entry TEXT,
                 updated timestamp
             );
@@ -113,12 +113,16 @@ class EntryManager(object):
         """, (key,))
         self.conn.commit()
 
-    def update(self, new_entry): 
-        assert isinstance(new_entry, dict), "Entry must be instance of ``dict``!"
+    def update(self, entry=None, **kwargs): 
+        if entry is None:
+            entry = kwargs
+        else:
+            assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+            entry.update(kwargs)
 
-        id_ = new_entry['__id__']
+        id_ = entry['__id__']
         self.delete(id_)
-        return self.create(new_entry)
+        return self.create(entry)
 
     def search(self, obj=None, size=None, offset=0, count=False, **kwargs):
         """
@@ -207,24 +211,3 @@ def format(results):
         entries.append(entry)
 
     return entries
-
-
-def quote_(name):
-    try:
-        return urllib.quote(name).replace('.', '%2E')
-    except TypeError:
-        return name
-
-
-def flatten(obj, keys=[]):
-    key = '.'.join(keys)
-    if isinstance(obj, (int, float, long, basestring, Operator)):
-        yield key, quote_(obj)
-    elif isinstance(obj, list):
-        for item in obj:
-            for pair in flatten(item, keys):
-                yield pair
-    elif isinstance(obj, dict):
-        for k, v in obj.items():
-            for pair in flatten(v, keys + [quote_(k)]):
-                yield pair

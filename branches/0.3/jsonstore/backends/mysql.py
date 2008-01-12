@@ -1,12 +1,204 @@
 import urllib
 import itertools
 import operator
-import datetime
+from datetime import datetime
+import time
 import threading
 LOCAL = threading.local()
 
+from uuid import uuid4
 from simplejson import loads, dumps
 from MySQLdb import connect
+
+from jsonstore.operators import Operator, Equal
+from jsonstore import flatten
+
+
+class EntryManager(object):
+    def __init__(self, location):
+        self.location = location
+
+        # Create table if it doesn't exist.
+        self._create_table()
+
+    @property
+    def conn(self):
+        if not hasattr(LOCAL, "conns"):
+            LOCAL.conns = {}
+
+        if self.location not in LOCAL.conns:
+            params = split_location(self.location)
+            LOCAL.conns[self.location] = connect(**params)
+        return LOCAL.conns[self.location]
+
+    def _create_table(self):
+        curs = self.conn.cursor()
+        curs.executescript("""
+            CREATE TABLE IF NOT EXISTS store (
+                id VARCHAR(255) PRIMARY KEY NOT NULL,
+                entry TEXT,
+                updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX (id));
+
+            CREATE TABLE IF NOT EXISTS flat (
+                id VARCHAR(255),
+                position CHAR(255),
+                leaft TEXT,
+                leafi INTEGER,
+                leafr REAL,
+                INDEX (position));
+        """)
+        self.conn.commit()
+
+    def create(self, entry=None, **kwargs):
+        if entry is None:
+            entry = kwargs
+        else:
+            assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+            entry.update(kwargs)
+
+        # __id__ and __updated__ can be overriden.
+        id_ = entry.pop('__id__', str(uuid4()))
+        updated = entry.pop('__updated__',
+                datetime.utcnow())
+        if not isinstance(updated, datetime):
+            updated = datetime(
+                *(time.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
+
+        # Store entry.
+        curs = self.conn.cursor()
+        curs.execute("""
+            INSERT INTO store (id, entry, updated)
+            VALUES (%s, %s, %s);
+        """, (id_, dumps(entry), updated))
+
+        # Index entry. We add some metadata (id, updated) and
+        # put it on the flat table.
+        entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
+        curs.executemany("""
+            INSERT INTO flat (id, position, leaft)
+            VALUES (%s, %s, %s);
+        """, ((id_, k, v) for (k, v) in flatten(entry)
+                if isinstance(v, basestring)))
+        curs.executemany("""
+            INSERT INTO flat (id, position, leafi)
+            VALUES (%s, %s, %s);
+        """, ((id_, k, v) for (k, v) in flatten(entry)
+                if isinstance(v, (int, long))))
+        curs.executemany("""
+            INSERT INTO flat (id, position, leafr)
+            VALUES (%s, %s, %s);
+        """, ((id_, k, v) for (k, v) in flatten(entry)
+                if isinstance(v, float)))
+        self.conn.commit()
+
+        entry['__id__'] = id_
+        entry['__updated__'] = updated
+        return entry
+        
+    def delete(self, key):
+        curs = self.conn.cursor()
+        curs.execute("""
+            DELETE FROM store
+            WHERE id=%s;
+        """, (key,))
+
+        curs.execute("""
+            DELETE FROM flat
+            WHERE id=%s;
+        """, (key,))
+        self.conn.commit()
+
+    def update(self, entry=None, **kwargs):    
+        if entry is None:
+            entry = kwargs
+        else:
+            assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
+            entry.update(kwargs)
+
+        id_ = entry['__id__']
+        self.delete(id_)
+        return self.create(entry)
+
+    def search(self, obj=None, size=None, offset=0, count=False, **kwargs):
+        """
+        Search database using a JSON object.
+        
+        """
+        if obj is None:
+            obj = kwargs
+        else:
+            assert isinstance(obj, dict), "Search key must be instance of ``dict``!"
+            obj.update(kwargs)
+
+        # Check for id.
+        id_ = obj.pop('__id__', None)
+
+        # Flatten the JSON key object.
+        pairs = list(flatten(obj))
+        pairs.sort()
+        groups = itertools.groupby(pairs, operator.itemgetter(0))
+
+        query = ["SELECT DISTINCT store.id, store.entry, DATE_FORMAT(store.updated, '%%Y-%%m-%%dT%%TZ') FROM store LEFT JOIN flat ON store.id=flat.id"]
+        condition = []
+        params = []
+
+        # Check groups from groupby, they should be joined within
+        # using an OR.
+        leaves = 0
+        for (key, group) in groups:
+            group = list(group)
+            subquery = []
+            for position, leaf in group:
+                params.append(position)
+                if not isinstance(leaf, Operator):
+                    leaf = Equal(leaf)
+
+                if isinstance(leaf, Exists):
+                    subquery.append("(position=%s AND (leaft NOTNULL OR leafi NOTNULL OR leafr NOTNULL))")
+                elif isinstance(leaf.params[0], basestring):
+                    subquery.append("(position=%%s AND leaft %s)" % str(leaf).replace('?', '%s'))
+                elif isinstance(leaf.params[0], float):
+                    subquery.append("(position=%%s AND leafr %s)" % str(leaf).replace('?', '%s'))
+                elif isinstance(leaf.params[0], (int, long)):
+                    subquery.append("(position=%%s AND leafi %s)" % str(leaf).replace('?', '%s'))
+                params.extend(leaf.params)
+                leaves += 1
+
+            condition.append(' OR '.join(subquery))
+
+        # Build query.
+        if condition or id_ is not None:
+            query.append("WHERE")
+        if id_ is not None:
+            query.append("store.id=%s")
+            params.insert(0, id_)
+            if condition:
+                query.append("AND")
+        if condition:
+            # Join all conditions with an OR.
+            query.append("(%s)" % " OR ".join(condition))
+        if leaves:
+            query.append("GROUP BY store.id HAVING COUNT(*)=%d" % leaves)
+        query.append("ORDER BY store.updated DESC")
+        if size is not None:
+            query.append("LIMIT %s" % size)
+        if offset:
+            query.append("OFFSET %s" % offset)
+        query = ' '.join(query)
+
+        curs = self.conn.cursor()
+        curs.execute("SET SESSION time_zone = 'SYSTEM';")
+        if count:
+            curs.execute("SELECT COUNT(*) FROM (%s)" % query, tuple(params))
+            return curs.fetchone()[0]
+        else:
+            curs.execute(query, tuple(params))
+            return format(curs.fetchall())
+
+    def close(self):
+        self.conn.close()
+        del LOCAL.conns[self.location]
 
 
 def split_location(location):
@@ -25,247 +217,3 @@ def split_location(location):
         var = locals()[name]
         if var is not None: kwargs[name] = var
     return kwargs
-
-
-def flatten(obj, keys=[]):
-    key = '.'.join(keys)
-    if isinstance(obj, (int, float, long, basestring)):
-        yield key, obj
-    else:
-        if isinstance(obj, list):
-            for item in obj:
-                for pair in flatten(item, keys):
-                    yield pair
-        elif isinstance(obj, dict):
-            for k, v in obj.items():
-                for pair in flatten(v, keys + [k]):
-                    yield pair
-
-
-class EntryManager(object):
-    def __init__(self, location):
-        self.location = location
-
-        # Create table if it doesn't exist.
-        self._create_table()
-
-    @property
-    def conn(self):
-        if not hasattr(LOCAL, "connections"):
-            LOCAL.connections = {}
-
-        if self.location not in LOCAL.connections:
-            params = split_location(self.location)
-            LOCAL.connections[self.location] = connect(**params)
-        return LOCAL.connections[self.location]
-
-    def _create_table(self):
-        curs = self.conn.cursor()
-        curs.execute("""
-            CREATE TABLE IF NOT EXISTS store (
-                id INTEGER PRIMARY KEY AUTO_INCREMENT,
-                entry TEXT,
-                updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP);
-        """)
-
-        curs.execute("""
-            CREATE TABLE IF NOT EXISTS flat (
-                id INTEGER,
-                position CHAR(255),
-                leaf TEXT,
-                INDEX (position));
-        """)
-        self.conn.commit()
-
-    def create_entry(self, entry):
-        assert isinstance(entry, dict), "Entry must be instance of ``dict``!"
-
-        curs = self.conn.cursor()
-
-        # __id__ and __updated__ can be overriden.
-        if '__id__' in entry:
-            # id must be an integer.
-            id_ = int(entry.pop('__id__'))
-        else:
-            id_ = None
-        if '__updated__' in entry:
-            updated = entry.pop('__updated__')
-            if not isinstance(updated, datetime.datetime):
-                updated = datetime.datetime(
-                    *(time.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
-        else:
-            updated = datetime.datetime.utcnow()
-
-        # Store entry.
-        curs.execute("""
-            INSERT INTO store (id, entry, updated)
-            VALUES (%s, %s, %s);
-        """, (id_, dumps(entry), updated))
-        id_ = curs.lastrowid
-
-        # Index entry. We add some metadata (id, updated) and
-        # put it on the flat table.
-        entry['__id__'] = id_
-        entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
-        indices = [(id_, k, v) for (k, v) in flatten(entry)]
-        curs.executemany("""
-            INSERT INTO flat (id, position, leaf)
-            VALUES (%s, %s, %s);
-        """, indices)
-
-        self.conn.commit()
-        
-        return self.get_entry(id_)
-        
-    def get_entry(self, key):
-        curs = self.conn.cursor()
-        curs.execute("SET SESSION time_zone = 'SYSTEM';")
-
-        curs.execute("""
-            SELECT id, entry, 
-            DATE_FORMAT(updated, '%%Y-%%m-%%dT%%TZ')
-            FROM store WHERE id=%s;
-        """, (key,))
-        id_, entry, updated = curs.fetchone()
-        
-        entry = loads(entry)
-        entry['__id__'] = id_
-        entry['__updated__'] = updated
-        
-        return entry
-
-    def get_entries(self, size=None, offset=0): 
-        curs = self.conn.cursor()
-        curs.execute("SET SESSION time_zone = 'SYSTEM';")
-
-        query = ["SELECT id, entry, DATE_FORMAT(updated, '%Y-%m-%dT%TZ') FROM store ORDER BY updated DESC"]
-        if size is not None: query.append("LIMIT %s" % size)
-        if offset: query.append("OFFSET %s" % offset)
-        curs.execute(' '.join(query))
-
-        entries = []
-        for id_, entry, updated in curs.fetchall():
-            entry = loads(entry)
-            entry['__id__'] = id_
-            entry['__updated__'] = updated
-            entries.append(entry)
-
-        return entries
-        
-    def delete_entry(self, key):
-        curs = self.conn.cursor()
-
-        curs.execute("""
-            DELETE FROM store
-            WHERE id=%s;
-        """, (key,))
-
-        curs.execute("""
-            DELETE FROM flat
-            WHERE id=%s;
-        """, (key,))
-
-        self.conn.commit()
-
-    def update_entry(self, new_entry): 
-        assert isinstance(new_entry, dict), "Entry must be instance of ``dict``!"
-
-        curs = self.conn.cursor()
-
-        # __updated__ can be overriden.
-        if '__updated__' in new_entry:
-            updated = new_entry.pop('__updated__')
-            if not isinstance(updated, datetime.datetime):
-                updated = datetime.datetime(
-                    *(time.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')[0:6]))
-        else:
-            updated = datetime.datetime.utcnow()
-        id_ = int(new_entry.pop('__id__'))
-
-        curs.execute("""
-            UPDATE store
-            SET entry=%s, updated=%s
-            WHERE id=%s;
-        """, (dumps(new_entry), updated, id_))
-
-        # Rebuild index.
-        curs.execute("""
-            DELETE FROM flat
-            WHERE id=%s;
-        """, (id_,))
-        
-        # Index entry.
-        new_entry['__id__'] = id_
-        new_entry['__updated__'] = updated.isoformat().split('.', 1)[0] + 'Z'
-        indices = [(id_, k, v) for (k, v) in flatten(new_entry)]
-        curs.executemany("""
-            INSERT INTO flat (id, position, leaf)
-            VALUES (%s, %s, %s);
-        """, indices)
-
-        self.conn.commit()
-        
-        return self.get_entry(id_)
-
-    def search(self, obj, mode=0, size=None, offset=0):
-        """
-        Search database using a JSON object.
-        
-        The idea is here is to flatten the JSON object (the "key"), and search the index table for each leaf of the key using an OR. We then get those ids where the number of results is equal to the number of leaves in the key, since these objects match the whole key.
-        
-        """
-        curs = self.conn.cursor()
-        curs.execute("SET SESSION time_zone = 'SYSTEM';")
-
-        # Flatten the JSON key object.
-        pairs = list(flatten(obj))
-        pairs.sort()
-        groups = itertools.groupby(pairs, operator.itemgetter(0))
-
-        query = ["SELECT store.id, store.entry, DATE_FORMAT(store.updated, '%%Y-%%m-%%dT%%TZ') FROM store LEFT JOIN flat ON store.id=flat.id"]
-        condition = []
-        params = []
-
-        # Check groups from groupby, they should be joined within
-        # using an OR.
-        count = 0
-        for (key, group) in groups:
-            group = list(group)
-            unused = [params.extend(t) for t in group]
-
-            # Search mode.
-            if mode == 0:
-                # Plain match w/o regexp.
-                subquery = ["(position=%s AND leaf=%s)" for t in group]
-            elif mode == 1:
-                # LIKE search.
-                subquery = ["(position=%s AND leaf LIKE %s)" for t in group]
-            elif mode == 2:
-                # Regular expressions.
-                subquery = ["(position=%s AND leaf REGEXP %s)" for t in group]
-
-            condition.append(' OR '.join(subquery))
-            count += len(unused)
-        # Join all conditions with an OR.
-        if condition:
-            query.append("WHERE")
-            query.append(' OR '.join(condition))
-        if count: query.append('GROUP BY store.id HAVING count(*)=%d' % count)
-        query.append("ORDER BY store.updated DESC")
-        if size is not None: query.append("LIMIT %s" % size)
-        if offset: query.append("OFFSET %s" % offset)
-
-        curs.execute(' '.join(query), tuple(params))
-        results = curs.fetchall()
-
-        entries = []
-        for id_, entry, updated in results:
-            entry = loads(entry)
-            entry['__id__'] = id_
-            entry['__updated__'] = updated
-            entries.append(entry)
-
-        return entries
-
-    def close(self):
-        self.conn.close()

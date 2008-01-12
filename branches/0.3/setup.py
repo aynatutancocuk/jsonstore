@@ -19,13 +19,12 @@ This package contains a WSGI app implementing a REST store accessible through a 
       zip_safe=True,
       install_requires=[
           # -*- Extra requirements: -*-
-          'Paste',
           'WebOb',
           'simplejson',
           'uuid',
       ],
       extras_require={
-          'mysql': ['MySQLdb'],
+          'mysql': ['MySQL-python'],
           'sqlite': ['pysqlite>=2'],
       },
       entry_points="""
