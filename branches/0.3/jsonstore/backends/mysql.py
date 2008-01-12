@@ -80,18 +80,18 @@ class EntryManager(object):
         curs.executemany("""
             INSERT INTO flat (id, position, leaft)
             VALUES (%s, %s, %s);
-        """, ((id_, k, v) for (k, v) in flatten(entry)
-                if isinstance(v, basestring)))
+        """, [(id_, k, v) for (k, v) in flatten(entry)
+                if isinstance(v, basestring)])
         curs.executemany("""
             INSERT INTO flat (id, position, leafi)
             VALUES (%s, %s, %s);
-        """, ((id_, k, v) for (k, v) in flatten(entry)
-                if isinstance(v, (int, long))))
+        """, [(id_, k, v) for (k, v) in flatten(entry)
+                if isinstance(v, (int, long))])
         curs.executemany("""
             INSERT INTO flat (id, position, leafr)
             VALUES (%s, %s, %s);
-        """, ((id_, k, v) for (k, v) in flatten(entry)
-                if isinstance(v, float)))
+        """, [(id_, k, v) for (k, v) in flatten(entry)
+                if isinstance(v, float)])
         self.conn.commit()
 
         entry['__id__'] = id_
