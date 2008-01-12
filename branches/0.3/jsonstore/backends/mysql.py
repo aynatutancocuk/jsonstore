@@ -219,3 +219,14 @@ def split_location(location):
         var = locals()[name]
         if var is not None: kwargs[name] = var
     return kwargs
+
+
+def format(results):
+    entries = []
+    for id_, entry, updated in results:
+        entry = loads(entry)
+        entry['__id__'] = id_
+        entry['__updated__'] = updated
+        entries.append(entry)
+
+    return entries
