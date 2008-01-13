@@ -75,6 +75,7 @@ class JSONStore(object):
 
         result = self.em.create(entry)
         body = dumps(result, cls=DatetimeEncoder)
+        etag = '"%s"' % sha(body).hexdigest()
         location = urljoin(req.application_url, result['__id__'])
 
         return Response(
@@ -82,7 +83,7 @@ class JSONStore(object):
                 body=body,
                 content_type='application/json',
                 charset='utf8',
-                headerlist=[('Location', location)])
+                headerlist=[('Location', location), ('etag', etag)])
 
     def PUT(self, req):
         entry = load_entry(req.body)
@@ -102,11 +103,13 @@ class JSONStore(object):
 
         result = self.em.update(entry)
         body = dumps(result, cls=DatetimeEncoder)
+        etag = '"%s"' % sha(body).hexdigest()
 
         return Response(
                 body=body,
                 content_type='application/json',
-                charset='utf8')
+                charset='utf8',
+                headerlist=[('etag', etag)])
         
     def DELETE(self, req):
         id_ = req.path_info.lstrip('/')
