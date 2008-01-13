@@ -28,7 +28,7 @@ class EntryManager(object):
 
         if self.location not in LOCAL.conns:
             params = split_location(self.location)
-            LOCAL.conns[self.location] = connect(**params)
+            LOCAL.conns[self.location] = connect(charset='utf8', **params)
         return LOCAL.conns[self.location]
 
     def _create_table(self):
