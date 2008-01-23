@@ -32,6 +32,9 @@ This package contains a WSGI app implementing a REST store accessible through a 
       [paste.app_factory]
       main = jsonstore.store:make_app
 
+      [paste.filter_app_factory]
+      method_auth = jsonstore.middleware:make_auth
+
       [jsonstore.backend]
       mysql = jsonstore.backends.mysql:EntryManager
       sqlite = jsonstore.backends.sqlite:EntryManager
