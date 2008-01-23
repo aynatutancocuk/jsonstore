@@ -1,4 +1,7 @@
+from datetime import datetime
+
 from jsonstore.store import JSONStore
+from jsonstore.middleware import MethodAuth
 from jsonstore.backends import EntryManager
 from jsonstore.operators import *
 
@@ -10,11 +13,16 @@ def escape(name):
         return name
 
 
+def datetime_to_iso(obj):
+    try:
+        return obj.isoformat().split('.', 1)[0] + 'Z'
+    except:
+        return obj
+
+
 def flatten(obj, keys=[]):
     key = '.'.join(keys)
-    if isinstance(obj, (int, float, long, basestring, Operator)):
-        yield key, escape(obj)
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         for item in obj:
             for pair in flatten(item, keys):
                 yield pair
@@ -22,3 +30,10 @@ def flatten(obj, keys=[]):
         for k, v in obj.items():
             for pair in flatten(v, keys + [escape(k)]):
                 yield pair
+    elif isinstance(obj, datetime):
+        yield key, datetime_to_iso(obj)
+    elif isinstance(obj, Operator):
+        obj.params = [datetime_to_iso(p) for p in obj.params]
+        yield key, obj
+    else:
+        yield key, obj
