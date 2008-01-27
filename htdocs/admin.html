@@ -1,0 +1,325 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" 
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+    <head>
+        <script type="text/javascript" src="js/jquery-latest.js"></script>
+        <script type="text/javascript" src="js/json2.js"></script>
+        <script type="text/javascript" src="js/jsonstore.js"></script>
+        <script type="text/javascript">
+            $.fn.extend({
+                initDl: function() {
+                    return this.each(function() {
+                        var obj = this;
+
+                        $(
+                            '<a class="toggle" href="#" title="Hide">' + 
+                            '<img src="images/icons/bullet_arrow_up.png" />' +
+                            '</a>'
+                        ).prependTo(this).find(
+                            'img'
+                        ).click(function() {
+                            if ($(this).attr('src') == 'images/icons/bullet_arrow_up.png') {
+                                $(obj).children('dt,dd').hide();
+                                $(this).attr('src', 'images/icons/bullet_arrow_down.png');
+                                $(this).parent('a').attr('title', 'Show');
+                            } else {
+                                $(obj).children('dt').show();
+                                $(obj).children('dd').not('.hidden').show();
+                                $(this).attr('src', 'images/icons/bullet_arrow_up.png');
+                                $(this).parent('a').attr('title', 'Hide');
+                            }
+                        });
+
+                        $(
+                            '<a href="#" title="Delete this object">' + 
+                            '<img src="images/icons/application_delete.png" />' + 
+                            '</a>'
+                        ).prependTo(this).find(
+                            'img'
+                        ).click(function() {
+                            $(obj).remove();
+                        });
+
+                        $(
+                            '<a href="#" title="Add new attribute">' + 
+                            '<img src="images/icons/application_form_add.png" />' + 
+                            '</a>'
+                        ).prependTo(this).find(
+                            'img'
+                        ).click(function() {
+                            $(obj).children('dt').show();
+                            $(obj).children('dd').not('.hidden').show();
+                            $(obj).children('a.toggle').attr(
+                                'title', 'Hide'
+                            ).find('img').attr(
+                                'src', 'images/icons/bullet_arrow_up.png'
+                            );
+                            $(
+                                '<dt><a href="#" class="editable action">attribute</a></dt>'
+                            ).appendTo(obj).initDt().find(
+                                'a.editable'
+                            ).editable().click();
+                        });
+                    });
+                },
+
+                initDd: function() {
+                    return this.each(function() {
+                        var obj = this;
+
+                        $(
+                            '<a href="#" title="Delete this value">' + 
+                            '<img src="images/icons/textfield_delete.png" />' +
+                            '</a>'
+                        ).appendTo(this).click(function() {
+                            $(obj).remove();
+                        });;
+                    });
+                },
+
+                initDt: function() {
+                    return this.each(function() {
+                        var obj = this;
+
+                        $(
+                            '<a href="#" title="Add new object">' + 
+                            '<img src="images/icons/application_add.png" />' + 
+                            '</a>'
+                        ).appendTo(this).find(
+                            'img'
+                        ).click(function() {
+                            last = obj;
+                            $(obj).nextAll().each(function() {
+                                if (this.tagName != 'DD') return false;
+                                $(this).show();
+                                $(this).removeClass('hidden');
+                                last = this;
+                            });
+                            $(obj).children('a.toggle').attr(
+                                'title', 'Hide'
+                            ).find('img').attr(
+                                'src', 'images/icons/bullet_arrow_up.png'
+                            );
+                            $(
+                                '<dd><dl></dl></dd>'
+                            ).insertAfter(last).find(
+                                'dl'
+                            ).initDl();
+                        });
+
+                        $(
+                            '<a href="#" title="Add new value">' + 
+                            '<img src="images/icons/textfield_add.png" />' + 
+                            '</a>'
+                        ).appendTo(this).find(
+                            'img'
+                        ).click(function() {
+                            last = obj;
+                            $(obj).nextAll().each(function() {
+                                if (this.tagName != 'DD') return false;
+                                $(this).show();
+                                $(this).removeClass('hidden');
+                                last = this;
+                            });
+                            $(obj).children('a.toggle').attr(
+                                'title', 'Hide'
+                            ).find('img').attr(
+                                'src', 'images/icons/bullet_arrow_up.png'
+                            );
+                            $(
+                                '<dd><a href="#" class="editable action">value</a></dd>'
+                            ).insertAfter(last).initDd().find(
+                                'a.editable'
+                            ).editable().click();
+                        });
+
+                        $(
+                            '<a href="#" title="Delete this attribute">' + 
+                            '<img src="images/icons/application_form_delete.png" />' + 
+                            '</a>'
+                        ).appendTo(this).find(
+                            'img'
+                        ).click(function() {
+                            $(obj).nextAll().each(function() {
+                                if (this.tagName != 'DD') return false;
+                                $(this).remove();
+                            });
+                            $(obj).remove();
+                        });
+
+                        $(
+                            '<a class="toggle" href="#" title="Hide">' + 
+                            '<img src="images/icons/bullet_arrow_up.png" />' +
+                            '</a>'
+                        ).appendTo(this).find(
+                            'img'
+                        ).click(function() {
+                            if ($(this).attr('src') == 'images/icons/bullet_arrow_up.png') {
+                                $(obj).nextAll().each(function() {
+                                    if (this.tagName != 'DD') return false;
+                                    $(this).addClass('hidden');
+                                    $(this).hide();
+                                });
+                                $(this).attr('src', 'images/icons/bullet_arrow_down.png');
+                                $(this).parent('a').attr('title', 'Show');
+                            } else {
+                                $(obj).nextAll().each(function() {
+                                    if (this.tagName != 'DD') return false;
+                                    $(this).removeClass('hidden');
+                                    $(this).show();
+                                });
+                                $(this).attr('src', 'images/icons/bullet_arrow_up.png');
+                                $(this).parent('a').attr('title', 'Hide');
+                            }
+                        });
+                    });
+                },
+
+                editable: function() {
+                    return this.each(function() {
+                        $(this).click(function() {
+                            var obj = this;
+                            $(obj).hide();
+                            $(
+                                '<input type="text" />'
+                            ).attr(
+                                'value', $(obj).text()
+                            ).insertAfter(
+                                obj
+                            ).keypress(function(e) {
+                                // 13 is Enter, 0 is Esc.
+                                if (e.which == 13) {
+                                    $(obj).text(this.value || 'value');
+                                    $(obj).show();
+                                    $(this).remove();
+                                } else if (e.which == 0) {
+                                    $(obj).show();
+                                    $(this).remove();
+                                }
+                            }).blur(function() {
+                                $(obj).text(this.value || 'value');
+                                $(obj).show();
+                                $(this).remove();
+                            }).each(function() {
+                                this.focus();
+                                this.select();
+                            });
+                        });
+                    });
+                }
+            });
+
+            $(document).ready(function() {
+                em = new EntryManager('http://localhost:8080/');
+
+                $("#new").click(function() {
+                    $('#edit').html('');
+                    $(
+                        '<dl>' + 
+                        '<dt>__id__</dt>' + 
+                        '<dd><a href="#" class="editable action">leave blank for auto-generated</a></dd>' + 
+                        '<dt>__updated__</dt>' + 
+                        '<dd><a href="#" class="editable action">leave blank for current time</a></dd>' + 
+                        '</dl>'
+                    ).initDl().appendTo('#edit').find(
+                        'a.editable'
+                    ).editable();
+
+                    $(
+                        '<a class="save" href="#" title="Save document">' + 
+                        '<img src="images/icons/add.png" />' + 
+                        '</a>'
+                    ).prependTo('#edit dl').click(function() {
+                        img = $(this).find('img').get(0);
+                        $(img).attr('src', 'images/icons/time.png');
+                        entry = domToJson($('#edit dl').get(0));
+                        alert(JSON.stringify(entry));
+                        /*em.create(doc, function(entry) {
+                            $(img).attr('src', 'images/icons/accept.png');
+                        });*/
+                    });
+                });
+            });
+
+            function domToJson(dl) {
+                var entry = {};
+                $(dl).children('dt').each(function() {
+                    var k = $(this).text();
+                    var v = [];
+                    $(this).nextAll().each(function() {
+                        if (this.tagName != 'DD') return false;
+                        var child = $(this).children().get(0);
+                        if (child.tagName == 'DL') {
+                            v.push(domToJson(child));
+                        } else {
+                            v.push(parseValue($(this).text()));
+                        }
+                    });
+                    if (v.length == 1) v = v[0];
+                    entry[k] = v;
+                });
+                return entry;
+            }
+
+            function parseValue(value) {
+                if (isNaN(parseFloat(value))) return value;
+                return parseFloat(value);
+            }
+        </script>
+        <style>
+            body {
+                font-size: 80%;
+                font-family: Helvetica, sans-serif;
+                margin: 0;
+                padding: 0;
+            }
+
+            #results, #search {
+                float: left;
+                width: 50%;
+            }
+
+            #edit {
+                clear: left;
+                width: 100%;
+            }
+
+            img {
+                border: 0;
+                padding: 0 3px;
+            }
+
+            dl {
+                background-color: #eee;
+                border: 1px solid #ddd;
+                padding: 3px;
+                margin: 0;
+            }
+
+            dt {
+                font-weight: bold;
+                margin: 6px 0 3px 3px;
+            }
+
+            dd {
+                margin-bottom: 3px;
+                margin-left: 18px;
+            }
+
+            .action {
+                color: #aaa;
+                font-style: italic;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="results">
+            <p>JSONStore @ http://localhost:8080/</p>
+            <ul>
+                <li><a href="#" class="action" id="new">Add a new document</a></li>
+            </ul>
+        </div>
+        <div id="search"></div>
+        <div id="edit"></div>
+    </body>
+</html>
