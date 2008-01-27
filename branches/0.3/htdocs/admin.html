@@ -82,32 +82,6 @@
                         var obj = this;
 
                         $(
-                            '<a href="#" title="Add new object">' + 
-                            '<img src="images/icons/application_add.png" />' + 
-                            '</a>'
-                        ).appendTo(this).find(
-                            'img'
-                        ).click(function() {
-                            last = obj;
-                            $(obj).nextAll().each(function() {
-                                if (this.tagName != 'DD') return false;
-                                $(this).show();
-                                $(this).removeClass('hidden');
-                                last = this;
-                            });
-                            $(obj).children('a.toggle').attr(
-                                'title', 'Hide'
-                            ).find('img').attr(
-                                'src', 'images/icons/bullet_arrow_up.png'
-                            );
-                            $(
-                                '<dd><dl></dl></dd>'
-                            ).insertAfter(last).find(
-                                'dl'
-                            ).initDl();
-                        });
-
-                        $(
                             '<a href="#" title="Add new value">' + 
                             '<img src="images/icons/textfield_add.png" />' + 
                             '</a>'
@@ -131,6 +105,32 @@
                             ).insertAfter(last).initDd().find(
                                 'a.editable'
                             ).editable().click();
+                        });
+
+                        $(
+                            '<a href="#" title="Add new object">' + 
+                            '<img src="images/icons/application_add.png" />' + 
+                            '</a>'
+                        ).appendTo(this).find(
+                            'img'
+                        ).click(function() {
+                            last = obj;
+                            $(obj).nextAll().each(function() {
+                                if (this.tagName != 'DD') return false;
+                                $(this).show();
+                                $(this).removeClass('hidden');
+                                last = this;
+                            });
+                            $(obj).children('a.toggle').attr(
+                                'title', 'Hide'
+                            ).find('img').attr(
+                                'src', 'images/icons/bullet_arrow_up.png'
+                            );
+                            $(
+                                '<dd><dl></dl></dd>'
+                            ).insertAfter(last).find(
+                                'dl'
+                            ).initDl();
                         });
 
                         $(
