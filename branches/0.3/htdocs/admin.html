@@ -237,10 +237,13 @@
                         img = $(this).find('img').get(0);
                         $(img).attr('src', 'images/icons/time.png');
                         entry = domToJson($('#edit dl').get(0));
-                        alert(JSON.stringify(entry));
-                        /*em.create(doc, function(entry) {
+                        em.create(entry, function(entry) {
                             $(img).attr('src', 'images/icons/accept.png');
-                        });*/
+                            //XXX
+                            //clear search?
+                            //add entry to list (or refresh?)
+                            //build dl from entry an make editable
+                        });
                     });
                 });
             });
@@ -262,6 +265,8 @@
                     if (v.length == 1) v = v[0];
                     entry[k] = v;
                 });
+                if ((entry.__id__ == 'leave blank for auto-generated') || (entry.__id__ == '')) delete entry.__id__;
+                if ((entry.__updated__ == 'leave blank for current time') || (entry.__updated__ == '')) delete entry.__updated__;
                 return entry;
             }
 
@@ -275,7 +280,7 @@
                 font-size: 80%;
                 font-family: Helvetica, sans-serif;
                 margin: 0;
-                padding: 0;
+                padding: 3px;
             }
 
             #results, #search {
