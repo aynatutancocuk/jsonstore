@@ -1,50 +1,62 @@
-var xml = window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : new XMLHttpRequest();
+var xhr = window.ActiveXObject ? new ActiveXObject("Microsoft.XMLHTTP") : new XMLHttpRequest();
 
 function json(method, url, obj, callback) {
-    xml.open(method || 'GET', url, true);
-    xml.setRequestHeader('Content-Type', 'application/json');
-    xml.onreadystatechange = function() {
-        if (xml.readyState == 4) {
-            if (callback) {
-                callback(xml.responseText);
-            }
-        }
+    xhr.open(method || 'GET', url, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState == 4) callback(xhr);
     };
-    xml.send(JSON.stringify(obj));
+    xhr.send(JSON.stringify(obj));
 }
-    
+
 function EntryManager(url, common) {
     this.url = url;
     this.common = common;
 
-    this.create = function(entry, callback) {
+    this.create = function(entry, opts) {
         for (key in this.common) entry[key] = this.common[key]; 
-        json('POST', this.url, entry, callback);
+
+        json('POST', this.url, entry, function(xml) {
+            if (xml.status == 201) {
+                if (opts.success) opts.success(JSON.parse(xml.responseText));
+            } else {
+                if (opts.error) opts.error(xml.statusText);
+            }
+        });
     };
 
-    this.update = function(entry, callback) {
-        json('PUT', this.url + entry['__id__'], entry, callback);
+    this.update = function(entry, opts) {
+        json('PUT', this.url + encodeURIComponent(entry.__id__), entry, function(xml) {
+            if (xml.status == 200) {
+                if (opts.success) opts.success(JSON.parse(xml.responseText));
+            } else {
+                if (opts.error) opts.error(xml.statusText);
+            }
+        });
     };
 
-    this.search = function(key, callback) {
-        json('GET', this.url + encodeURIComponent(JSON.stringify(key)), null, callback);
+    this.search = function(key, opts) {
+        var url = this.url + encodeURIComponent(JSON.stringify(key)) +
+                  '?size=' + (opts.size || 10) +
+                  '&offset=' + (opts.offset || 0);
+        json('GET', url, null, function(xml) {
+            if (xml.status == 200) {
+                count = parseInt(xml.getResponseHeader("x-items"));
+                if (opts.success) opts.success(JSON.parse(xml.responseText), count);
+            } else {
+                if (opts.error) opts.error(xml.statusText);
+            }
+        });
     };
 
     // ``delete`` is a reserved word.
-    this.remove = function(id, callback) {
-        json('DELETE', this.url + id, null, callback);
-    };
-
-    this.count = function(key, callback) {
-        xml.open('HEAD', this.url + encodeURIComponent(JSON.stringify(key)), true);
-        xml.setRequestHeader('Content-Type', 'application/json');
-        xml.onreadystatechange = function() {
-            if (xml.readyState == 4) {
-                if (callback) {
-                    callback(parseInt(xml.getResponseHeader("x-items")));
-                }
+    this.remove = function(id, opts) {
+        json('DELETE', this.url + encodeURIComponent(id), null, function(xml) {
+            if (xml.status == 204) {
+                if (opts.success) opts.success();
+            } else {
+                if (opts.error) opts.error(xml.statusText);
             }
-        };
-        xml.send('');
-    };    
+        });
+    };
 }

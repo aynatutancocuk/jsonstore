@@ -59,7 +59,6 @@ class JSONStore(object):
 
         if jsonp:
             body = jsonp + '(' + body + ')'
-
         if req.method == 'HEAD':
             body = ''
 
@@ -116,7 +115,8 @@ class JSONStore(object):
         self.em.delete(id_)
 
         return Response(
-                body='null',
+                status='204 No Content',
+                body='',
                 content_type='application/json',
                 charset='utf8')
 

@@ -7,13 +7,16 @@
         <script type="text/javascript" src="js/jsonstore.js"></script>
         <script type="text/javascript">
             /* TODO
-                - fix __id__ and __updated__ default values (remove)
-                - add error callback to jsonstore.js functions
+                - replace input field with textarea if length > 20?
             */
             $.fn.extend({
                 initDl: function() {
                     return this.each(function() {
                         var obj = this;
+
+                        $(this).children('dd').initDd();
+                        $(this).children('dt').initDt();
+                        $(this).find('a.editable').editable();
 
                         $(
                             '<a class="toggle" href="#" title="Hide">' + 
@@ -36,7 +39,7 @@
 
                         $(
                             '<a href="#" title="Delete this object">' + 
-                            '<img src="images/icons/application_delete.png" />' + 
+                            '<img src="images/icons/application_form_delete.png" />' + 
                             '</a>'
                         ).prependTo(this).find(
                             'img'
@@ -46,7 +49,7 @@
 
                         $(
                             '<a href="#" title="Add new attribute">' + 
-                            '<img src="images/icons/application_form_add.png" />' + 
+                            '<img src="images/icons/key_add.png" />' + 
                             '</a>'
                         ).prependTo(this).find(
                             'img'
@@ -71,13 +74,17 @@
                     return this.each(function() {
                         var obj = this;
 
-                        $(
-                            '<a href="#" title="Delete this value">' + 
-                            '<img src="images/icons/textfield_delete.png" />' +
-                            '</a>'
-                        ).appendTo(this).click(function() {
-                            $(obj).remove();
-                        });;
+                        if ($(this).children().get(0).tagName == 'DL') {
+                            $(this).children('dl').initDl();
+                        } else {
+                            $(
+                                '<a href="#" title="Delete this value">' + 
+                                '<img src="images/icons/textfield_delete.png" />' +
+                                '</a>'
+                            ).appendTo(this).click(function() {
+                                $(obj).remove();
+                            });
+                        }
                     });
                 },
 
@@ -113,7 +120,7 @@
 
                         $(
                             '<a href="#" title="Add new object">' + 
-                            '<img src="images/icons/application_add.png" />' + 
+                            '<img src="images/icons/application_form_add.png" />' + 
                             '</a>'
                         ).appendTo(this).find(
                             'img'
@@ -139,7 +146,7 @@
 
                         $(
                             '<a href="#" title="Delete this attribute">' + 
-                            '<img src="images/icons/application_form_delete.png" />' + 
+                            '<img src="images/icons/key_delete.png" />' + 
                             '</a>'
                         ).appendTo(this).find(
                             'img'
@@ -215,6 +222,63 @@
 
             $(document).ready(function() {
                 em = new EntryManager('http://localhost:8080/');
+                
+                // Load entries.
+                em.search({}, {
+                    size: 10,
+                    offset: 0,
+                    success: function(entries, count) {
+                        $.each(entries, function(i, entry) {
+                            $(
+                                '<li><a href="#" class="action" title="Edit this document">' + 
+                                entry.__id__ + 
+                                '</a></li>'
+                            ).appendTo(
+                                'ul#entries'
+                            ).find('a').click(function() {
+                                $('#edit').html('');
+                                jsonToDom(entry).initDl().appendTo('#edit');
+
+                                $(
+                                    '<a class="save" href="#" title="Save document">' + 
+                                    '<img src="images/icons/database_save.png" />' + 
+                                    '</a>'
+                                ).prependTo('#edit dl').click(function() {
+                                    img = $(this).find('img').get(0);
+                                    $(img).attr('src', 'images/icons/time.png');
+                                    entry = domToJson($('#edit dl').get(0));
+                                    if (entry.__id__) {
+                                        em.update(entry, {
+                                            success: function(entry) {
+                                                $(img).attr('src', 'images/icons/accept.png');
+                                                $('#edit dl').slideUp('slow', function() {
+                                                    $('#edit dl').remove();
+                                                });
+                                                // XXX load new entry in list.
+                                            },
+                                            error: function(entry) {
+                                                $(img).attr('src', 'images/icons/error.png');
+                                            }
+                                        });
+                                    } else {
+                                        em.create(entry, {
+                                            success: function(entry) {
+                                                $(img).attr('src', 'images/icons/accept.png');
+                                                $('#edit dl').slideUp('slow', function() {
+                                                    $('#edit dl').remove();
+                                                });
+                                                // XXX load new entry in list.
+                                            },
+                                            error: function(entry) {
+                                                $(img).attr('src', 'images/icons/error.png');
+                                            }
+                                        });
+                                    }
+                                });
+                            });
+                        });
+                    }
+                });
 
                 $("#new").click(function() {
                     $('#edit').html('');
@@ -225,28 +289,53 @@
                         '<dt>__updated__</dt>' + 
                         '<dd><a href="#" class="editable action">leave blank for current time</a></dd>' + 
                         '</dl>'
-                    ).initDl().appendTo('#edit').find(
-                        'a.editable'
-                    ).editable();
+                    ).initDl().appendTo('#edit');
 
                     $(
                         '<a class="save" href="#" title="Save document">' + 
-                        '<img src="images/icons/add.png" />' + 
+                        '<img src="images/icons/database_save.png" />' + 
                         '</a>'
                     ).prependTo('#edit dl').click(function() {
                         img = $(this).find('img').get(0);
                         $(img).attr('src', 'images/icons/time.png');
                         entry = domToJson($('#edit dl').get(0));
-                        em.create(entry, function(entry) {
-                            $(img).attr('src', 'images/icons/accept.png');
-                            //XXX
-                            //clear search?
-                            //add entry to list (or refresh?)
-                            //build dl from entry an make editable
+                        em.create(entry, {
+                            success: function(entry) {
+                                $(img).attr('src', 'images/icons/accept.png');
+                                $('#edit dl').slideUp('slow', function() {
+                                    $('#edit dl').remove();
+                                });
+                                // XXX load new entry in list.
+                            },
+                            error: function(entry) {
+                                $(img).attr('src', 'images/icons/error.png');
+                            }
                         });
                     });
                 });
             });
+
+            function jsonToDom(entry) {
+                var dom = $('<dl></dl>');
+                for (attr in entry) {
+                    if ((attr != '__id__') && (attr != '__updated__')) {
+                        dom.append('<dt><a href="#" class="editable action">' + attr + '</a></dt>');
+                    } else {
+                        dom.append('<dt>' + attr + '</dt>');
+                    }
+
+                    values = entry[attr];
+                    if (!(values instanceof Array)) values = [values];
+                    $.each(values, function(i, value) {
+                        if (value instanceof Object) {
+                            $('<dd></dd>').appendTo(dom).append(jsonToDom(value));
+                        } else {
+                            $('<dd><a href="#" class="editable action">' + value + '</a></dd>').appendTo(dom);
+                        }
+                    });
+                }
+                return dom;
+            }
 
             function domToJson(dl) {
                 var entry = {};
@@ -277,7 +366,7 @@
         </script>
         <style>
             body {
-                font-size: 80%;
+                font-size: 90%;
                 font-family: Helvetica, sans-serif;
                 margin: 0;
                 padding: 3px;
@@ -316,16 +405,62 @@
             }
 
             .action {
-                color: #aaa;
+                color: #888;
                 font-style: italic;
+            }
+
+            #entries {
+                background-color: #eee;
+                padding-left: 0;
+                margin-left: 0;
+                border-bottom: 1px solid #ddd;
+                border-right: 1px solid #ddd;
+                border-left: 1px solid #ddd;
+            }
+
+            #entries li {
+                list-style: none;
+                margin: 0;
+                padding: 3px;
+                border-top: 1px solid #ddd;
+            }
+
+            #entries li:hover, #entries li:hover a {
+                background-color: #aaa;
+                color: white;
+            }
+
+            #entries li a {
+                display: block;
+                text-decoration: none;
+                width: 100%;
+            }
+
+            #entries .header, #entries .header a {
+                background-color: #888;
+                color: white;
+            }
+
+            #header {
+                background-color: #aaa;
+                border: 1px solid #888;
+                color: white;
+                padding: 3px 18px;
+            }
+
+            #header h1 {
+                font-size: 120%;
+                font-weight: normal;
             }
         </style>
     </head>
     <body>
+        <div id="header">
+            <h1>JSONStore @ http://localhost:8080/</h1>
+        </div>
         <div id="results">
-            <p>JSONStore @ http://localhost:8080/</p>
-            <ul>
-                <li><a href="#" class="action" id="new">Add a new document</a></li>
+            <ul id="entries">
+                <li class="header"><a href="#" class="action" id="new">Add a new document</a></li>
             </ul>
         </div>
         <div id="search"></div>
