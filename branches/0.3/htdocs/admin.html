@@ -240,7 +240,7 @@
                                 jsonToDom(entry).initDl().appendTo('#edit');
 
                                 $(
-                                    '<a class="save" href="#" title="Save document">' + 
+                                    '<a href="#" title="Save document">' + 
                                     '<img src="images/icons/database_save.png" />' + 
                                     '</a>'
                                 ).prependTo('#edit dl').click(function() {
@@ -251,7 +251,7 @@
                                         em.update(entry, {
                                             success: function(entry) {
                                                 $(img).attr('src', 'images/icons/accept.png');
-                                                $('#edit dl').slideUp('slow', function() {
+                                                $('#edit dl').fadeOut('slow', function() {
                                                     $('#edit dl').remove();
                                                 });
                                                 // XXX load new entry in list.
@@ -264,7 +264,7 @@
                                         em.create(entry, {
                                             success: function(entry) {
                                                 $(img).attr('src', 'images/icons/accept.png');
-                                                $('#edit dl').slideUp('slow', function() {
+                                                $('#edit dl').fadeOut('slow', function() {
                                                     $('#edit dl').remove();
                                                 });
                                                 // XXX load new entry in list.
@@ -274,6 +274,28 @@
                                             }
                                         });
                                     }
+                                });
+
+                                $(
+                                    '<a href="#" title="Delete document">' + 
+                                    '<img src="images/icons/database_delete.png" />' + 
+                                    '</a>'
+                                ).prependTo('#edit dl').click(function() {
+                                    img = $(this).find('img').get(0);
+                                    $(img).attr('src', 'images/icons/time.png');
+                                    entry = domToJson($('#edit dl').get(0));
+                                    em.remove(entry.__id__, {
+                                        success: function(entry) {
+                                            $(img).attr('src', 'images/icons/accept.png');
+                                            $('#edit dl').fadeOut('slow', function() {
+                                                $('#edit dl').remove();
+                                            });
+                                            // XXX remove entry from list.
+                                        },
+                                        error: function(entry) {
+                                            $(img).attr('src', 'images/icons/error.png');
+                                        }
+                                    });
                                 });
                             });
                         });
@@ -292,7 +314,7 @@
                     ).initDl().appendTo('#edit');
 
                     $(
-                        '<a class="save" href="#" title="Save document">' + 
+                        '<a href="#" title="Save document">' + 
                         '<img src="images/icons/database_save.png" />' + 
                         '</a>'
                     ).prependTo('#edit dl').click(function() {
@@ -302,7 +324,7 @@
                         em.create(entry, {
                             success: function(entry) {
                                 $(img).attr('src', 'images/icons/accept.png');
-                                $('#edit dl').slideUp('slow', function() {
+                                $('#edit dl').fadeOut('slow', function() {
                                     $('#edit dl').remove();
                                 });
                                 // XXX load new entry in list.
@@ -360,8 +382,11 @@
             }
 
             function parseValue(value) {
-                if (isNaN(parseFloat(value))) return value;
-                return parseFloat(value);
+                if (/^([+-])?\d+(\.\d+)?(e([+-])?\d+)?$/.exec(value)) {
+                    return parseFloat(value);
+                } else {
+                    return value;
+                }
             }
         </script>
         <style>

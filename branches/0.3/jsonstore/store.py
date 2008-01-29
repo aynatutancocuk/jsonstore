@@ -71,7 +71,6 @@ class JSONStore(object):
 
     def POST(self, req):
         entry = load_entry(req.body)
-
         result = self.em.create(entry)
         body = dumps(result, cls=DatetimeEncoder)
         etag = '"%s"' % sha(body).hexdigest()
