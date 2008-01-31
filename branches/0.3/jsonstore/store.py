@@ -92,12 +92,13 @@ class JSONStore(object):
             return Response(status='409 Conflict')
 
         # Conditional PUT.
-        old = self.em.search(__id__=url_id)[0]
-        etag = '"%s"' % sha(dumps(old, cls=DatetimeEncoder)).hexdigest()
-        if etag not in req.if_match or (
-                req.if_unmodified_since and 
-                req.if_unmodified_since < old['updated']):
-            return Response(status='412 Precondition Failed')
+        old = self.em.search(__id__=url_id)
+        if old:
+            etag = '"%s"' % sha(dumps(old[0], cls=DatetimeEncoder)).hexdigest()
+            if etag not in req.if_match or (
+                    req.if_unmodified_since and 
+                    req.if_unmodified_since < old[0]['updated']):
+                return Response(status='412 Precondition Failed')
 
         result = self.em.update(entry)
         body = dumps(result, cls=DatetimeEncoder)
