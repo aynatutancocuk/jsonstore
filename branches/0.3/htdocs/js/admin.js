@@ -237,22 +237,24 @@ $.fn.extend({
             $(img).attr('src', 'images/icons/time.png');
             entry = domToJson($('#edit dl').get(0));
             id = entry.__id__;
-            em.remove(id, {
-                success: function(entry) {
-                    $(img).attr('src', 'images/icons/accept.png');
-                    $('#edit dl').fadeOut('slow', function() {
-                        $('#edit dl').remove();
-                    });
-                    $('ul#entries').find(
-                        'a:contains(' + id+ ')'
-                    ).parent().slideUp('slow', function() {
-                        $(this).remove();
-                    });
-                },
-                error: function(entry) {
-                    $(img).attr('src', 'images/icons/error.png');
-                }
-            });
+            if (confirm('Are you sure you want to delete the document "' + id + '"?')) {
+                em.remove(id, {
+                    success: function(entry) {
+                        $(img).attr('src', 'images/icons/accept.png');
+                        $('#edit dl').fadeOut('slow', function() {
+                            $('#edit dl').remove();
+                        });
+                        $('ul#entries').find(
+                            'a:contains(' + id+ ')'
+                        ).parent().slideUp('slow', function() {
+                            $(this).remove();
+                        });
+                    },
+                    error: function(entry) {
+                        $(img).attr('src', 'images/icons/error.png');
+                    }
+                });
+            }
         });
     },
 
