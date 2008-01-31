@@ -59,15 +59,17 @@ class JSONStore(object):
 
         if jsonp:
             body = jsonp + '(' + body + ')'
-        if req.method == 'HEAD':
-            body = ''
 
         return Response(
                 body=body,
                 content_type='application/json',
                 charset='utf8',
                 headerlist=[('X-ITEMS', str(items)), ('etag', etag)])
-    HEAD = GET
+
+    def HEAD(self, req):
+        response = GET(req)
+        response.body = ''
+        return response
 
     def POST(self, req):
         entry = load_entry(req.body)
