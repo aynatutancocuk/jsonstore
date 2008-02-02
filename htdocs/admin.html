@@ -32,11 +32,7 @@
                 }).bind('modified', function() {
                     var key = domToJson($('#key dl').get(0));
                     $('ul#entries').loadResults(key, NO_ENTRIES, 0);
-                    $(
-                        '<p class="footer">' + 
-                        '<a id="link" title="Link for this search">copy search</a>' +
-                        '</p>'
-                    ).appendTo('#key').find('#link').attr(
+                    $('#link').attr(
                         'href', JSONSTORE + encodeURIComponent(rison.encode(key))
                     );
                 });

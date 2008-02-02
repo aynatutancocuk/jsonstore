@@ -208,6 +208,7 @@ $.fn.extend({
                         $(obj).show();
                         $(this).remove();
                         $(obj).parents().trigger('modified');
+                        return false;
                     } else if (e.which == 0) {
                         $(obj).show();
                         $(this).remove();
@@ -217,6 +218,7 @@ $.fn.extend({
                     $(obj).show();
                     $(this).remove();
                     $(obj).parents().trigger('modified');
+                    return false;
                 }).each(function() {
                     this.focus();
                     this.select();
