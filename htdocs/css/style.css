@@ -5,9 +5,14 @@ body {
     padding: 6px;
 }
 
-#results, #search {
+#results {
     float: left;
-    width: 50%;
+    width: 60%;
+}
+
+#search {
+    float: left;
+    width: 40%;
 }
 
 #edit {

@@ -20,15 +20,6 @@
                 $('#search').click(function() {
                     $('#key').html('');
                     $('<dl></dl>').initDl().appendTo('#key');
-
-                    $(
-                        '<a href="#" title="Search">' +
-                        '<img src="images/icons/find.png" />' +
-                        '</a>'
-                    ).prependTo('#key dl').click(function() {
-                        var key = domToJson($('#key dl').get(0));
-                        $('ul#entries').loadResults(key, NO_ENTRIES, 0);
-                    });
                 });
 
                 $("#new").click(function() {
@@ -57,6 +48,7 @@
                     ).prependTo('#edit dl').click(function() {
                         $(this).entrySave();
                     });
+                    return false;
                 });
             });
         </script>

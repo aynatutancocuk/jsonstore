@@ -24,6 +24,7 @@ $.fn.extend({
                     $(this).attr('src', 'images/icons/bullet_arrow_up.png');
                     $(this).parent('a').attr('title', 'Hide');
                 }
+                return false;
             });
 
             $(
@@ -34,6 +35,7 @@ $.fn.extend({
                 'img'
             ).click(function() {
                 $(obj).remove();
+                return false;
             });
 
             $(
@@ -55,6 +57,7 @@ $.fn.extend({
                 ).appendTo(obj).initDt().find(
                     'a.editable'
                 ).editable().click();
+                return false;
             });
         });
     },
@@ -72,6 +75,7 @@ $.fn.extend({
                     '</a>'
                 ).appendTo(this).click(function() {
                     $(obj).remove();
+                    return false;
                 });
             }
         });
@@ -105,6 +109,7 @@ $.fn.extend({
                 ).insertAfter(last).initDd().find(
                     'a.editable'
                 ).editable().click();
+                return false;
             });
 
             $(
@@ -131,6 +136,7 @@ $.fn.extend({
                 ).insertAfter(last).find(
                     'dl'
                 ).initDl();
+                return false;
             });
 
             $(
@@ -145,6 +151,7 @@ $.fn.extend({
                     $(this).remove();
                 });
                 $(obj).remove();
+                return false;
             });
 
             $(
@@ -171,6 +178,7 @@ $.fn.extend({
                     $(this).attr('src', 'images/icons/bullet_arrow_up.png');
                     $(this).parent('a').attr('title', 'Hide');
                 }
+                return false;
             });
         });
     },
@@ -204,6 +212,7 @@ $.fn.extend({
                     this.focus();
                     this.select();
                 });
+                return false;
             });
         });
     },
@@ -219,6 +228,7 @@ $.fn.extend({
                 '</a>'
             ).prependTo('#edit dl').click(function() {
                 $(this).entryLoadJson();
+                return false;
             });
 
             $(
@@ -227,6 +237,7 @@ $.fn.extend({
                 '</a>'
             ).prependTo('#edit dl').click(function() {
                 $(this).entryRemove();
+                return false;
             });
 
             $(
@@ -235,6 +246,7 @@ $.fn.extend({
                 '</a>'
             ).prependTo('#edit dl').click(function() {
                 $(this).entrySave();
+                return false;
             });
         });
     },
@@ -303,6 +315,7 @@ $.fn.extend({
                 if (!entry.__id__) entry.__id__ = 'leave blank for auto-generated';
                 if (!entry.__updated__) entry.__updated__ = 'leave blank for current time';
                 jsonToDom(entry).entryEdit();
+                return false;
             });
 
             $(
@@ -311,6 +324,7 @@ $.fn.extend({
                 '</a>'
             ).appendTo('#load').click(function() {
                 $('#load').remove();
+                return false;
             });
         });
     }, 
@@ -333,6 +347,7 @@ $.fn.extend({
                             'a'
                         ).click(function() {
                             jsonToDom(entry).entryEdit();
+                            return false;
                         });
                     });
                     range = (entries.length > 1) ?
@@ -349,12 +364,14 @@ $.fn.extend({
                             '<a class="action nav" href="#">&larr;</a> '
                         ).prependTo('p.footer').click(function() {
                             $(obj).loadResults(key, size, offset-size);
+                            return false;
                     });
                     if (offset + entries.length < count)
                         $(
                             '<a class="action nav" href="#">&rarr;</a>'
                         ).appendTo('p.footer').click(function() {
                             $(obj).loadResults(key, size, offset+size);
+                            return false;
                     });
                 }
             });
