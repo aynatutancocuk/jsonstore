@@ -6,12 +6,14 @@
         <script type="text/javascript" src="js/fade/jquery.fade.js"></script>
         <script type="text/javascript" src="js/scrollTo/jquery.scrollTo.js"></script>
         <script type="text/javascript" src="js/json2.js"></script>
+        <script type="text/javascript" src="js/rison.js"></script>
         <script type="text/javascript" src="js/jsonstore.js"></script>
         <script type="text/javascript" src="js/admin.js"></script>
         <script type="text/javascript">
             $(document).ready(function() {
-                em = new EntryManager('http://localhost:8080/');
-                NO_ENTRIES = 10;
+                JSONSTORE = 'http://localhost:8080/';
+                NO_ENTRIES = 5;
+                em = new EntryManager(JSONSTORE);
                 
                 // Load entries.
                 $('ul#entries').loadResults({}, NO_ENTRIES, 0);
@@ -20,6 +22,23 @@
                 $('#search').click(function() {
                     $('#key').html('');
                     $('<dl></dl>').initDl().appendTo('#key');
+                    $(
+                        '<p class="footer">' + 
+                        '<a id="link" title="Link for this search">copy search</a>' +
+                        '</p>'
+                    ).appendTo('#key').find('#link').attr(
+                        'href', JSONSTORE + encodeURIComponent(rison.encode({}))
+                    );
+                }).bind('modified', function() {
+                    var key = domToJson($('#key dl').get(0));
+                    $('ul#entries').loadResults(key, NO_ENTRIES, 0);
+                    $(
+                        '<p class="footer">' + 
+                        '<a id="link" title="Link for this search">copy search</a>' +
+                        '</p>'
+                    ).appendTo('#key').find('#link').attr(
+                        'href', JSONSTORE + encodeURIComponent(rison.encode(key))
+                    );
                 });
 
                 $("#new").click(function() {
