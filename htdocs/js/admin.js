@@ -88,7 +88,7 @@ $.fn.extend({
             ).appendTo(this).find(
                 'img'
             ).click(function() {
-                last = obj;
+                var last = obj;
                 $(obj).nextAll().each(function() {
                     if (this.tagName != 'DD') return false;
                     $(this).show();
@@ -114,7 +114,7 @@ $.fn.extend({
             ).appendTo(this).find(
                 'img'
             ).click(function() {
-                last = obj;
+                var last = obj;
                 $(obj).nextAll().each(function() {
                     if (this.tagName != 'DD') return false;
                     $(this).show();
@@ -210,33 +210,41 @@ $.fn.extend({
 
     entryEdit: function() {
         return this.each(function() {
-             $('#edit').html('');
-             $(this).initDl().appendTo('#edit');
+            $('#edit').html('');
+            $(this).initDl().appendTo('#edit');
 
-             $(
-                 '<a href="#" title="Delete document">' + 
-                 '<img src="images/icons/database_delete.png" />' + 
-                 '</a>'
-             ).prependTo('#edit dl').click(function() {
-                 $(this).entryRemove();
-             });
+            $(
+                '<a href="#" title="Load JSON">' + 
+                '<img src="images/icons/page_white_text.png" />' +
+                '</a>'
+            ).prependTo('#edit dl').click(function() {
+                $(this).entryLoadJson();
+            });
 
-             $(
-                 '<a href="#" title="Save document">' + 
-                 '<img src="images/icons/database_save.png" />' + 
-                 '</a>'
-             ).prependTo('#edit dl').click(function() {
-                 $(this).entrySave();
-             });
+            $(
+                '<a href="#" title="Delete document">' + 
+                '<img src="images/icons/database_delete.png" />' + 
+                '</a>'
+            ).prependTo('#edit dl').click(function() {
+                $(this).entryRemove();
+            });
+
+            $(
+                '<a href="#" title="Save document">' + 
+                '<img src="images/icons/database_save.png" />' + 
+                '</a>'
+            ).prependTo('#edit dl').click(function() {
+                $(this).entrySave();
+            });
         });
     },
 
     entryRemove: function() {
         return this.each(function() {
-            img = $(this).find('img').get(0);
+            var img = $(this).find('img').get(0);
             $(img).attr('src', 'images/icons/time.png');
-            entry = domToJson($('#edit dl').get(0));
-            id = entry.__id__;
+            var entry = domToJson($('#edit dl').get(0));
+            var id = entry.__id__;
             if (confirm('Are you sure you want to delete the document "' + id + '"?')) {
                 em.remove(id, {
                     success: function(entry) {
@@ -260,11 +268,11 @@ $.fn.extend({
 
     entrySave: function() {
         return this.each(function() {
-            img = $(this).find('img').get(0);
+            var img = $(this).find('img').get(0);
             $(img).attr('src', 'images/icons/time.png');
-            entry = domToJson($('#edit dl').get(0));
-            id = entry.__id__;
-            method = id ? 'update' : 'create'; 
+            var entry = domToJson($('#edit dl').get(0));
+            var id = entry.__id__;
+            var method = id ? 'update' : 'create'; 
             em[method](entry, {
                 success: function(entry) {
                     $(img).attr('src', 'images/icons/accept.png');
@@ -288,6 +296,79 @@ $.fn.extend({
                 }
             });
         });
+    },
+
+    entryLoadJson: function() {
+        return this.each(function() {
+            $('#load').remove();
+            $('#edit dl').append(
+                '<div id="load"><textarea></textarea></div>'
+            );
+
+            $(
+                '<a href="#" title="Load JSON">' + 
+                '<img src="images/icons/page_white_get.png" />' + 
+                '</a>'
+            ).appendTo('#load').click(function() {
+                var content = JSON.parse($('#load textarea').val());
+                $('#load').remove();
+                var entry = domToJson($('#edit dl').get(0));
+                for (attr in content) entry[attr] = content[attr];
+                if (!entry.__id__) entry.__id__ = 'leave blank for auto-generated';
+                if (!entry.__updated__) entry.__updated__ = 'leave blank for current time';
+                jsonToDom(entry).entryEdit();
+            });
+
+            $(
+                '<a href="#" title="Cancel">' + 
+                '<img src="images/icons/page_white_delete.png" />' + 
+                '</a>'
+            ).appendTo('#load').click(function() {
+                $('#load').remove();
+            });
+        });
+    }, 
+
+    loadResults: function(key, size, offset) {
+        return this.each(function() {
+            var obj = this;
+            $(obj).html('');
+
+            em.search(key, {
+                size: size,
+                offset: offset,
+                success: function(entries, count) {
+                    $.each(entries, function(i, entry) {
+                        $(
+                            '<li><a href="#" class="action" title="Edit this document">' + 
+                            entry.__id__ + 
+                            '</a></li>'
+                        ).appendTo(obj).find(
+                            'a'
+                        ).click(function() {
+                            jsonToDom(entry).entryEdit();
+                        });
+                    });
+                    $(
+                        '<li class="footer">' + 
+                        (offset + 1) + ' to ' + (offset + entries.length) + ' of ' + count +
+                        '</li>'
+                    ).appendTo(obj);
+                    if (offset > 0) 
+                        $(
+                            '<a class="action" href="#"> &larr; </a> '
+                        ).prependTo('li.footer').click(function() {
+                            $(obj).loadResults(key, size, offset-size);
+                    });
+                    if (offset + entries.length < count)
+                        $(
+                            '<a class="action" href="#"> &rarr; </a>'
+                        ).appendTo('li.footer').click(function() {
+                            $(obj).loadResults(key, size, offset+size);
+                    });
+                }
+            });
+        });
     }
 });
 
@@ -300,7 +381,7 @@ function jsonToDom(entry) {
             dom.append('<dt>' + attr + '</dt>');
         }
 
-        values = entry[attr];
+        var values = entry[attr];
         if (!(values instanceof Array)) values = [values];
         $.each(values, function(i, value) {
             if (value instanceof Object) {
