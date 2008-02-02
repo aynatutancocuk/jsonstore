@@ -34,7 +34,9 @@ $.fn.extend({
             ).prependTo(this).find(
                 'img'
             ).click(function() {
+                var parents = $(obj).parents();
                 $(obj).remove();
+                parents.trigger('modified');
                 return false;
             });
 
@@ -74,7 +76,9 @@ $.fn.extend({
                     '<img src="images/icons/textfield_delete.png" />' +
                     '</a>'
                 ).appendTo(this).click(function() {
+                    var parents = $(obj).parents();
                     $(obj).remove();
+                    parents.trigger('modified');
                     return false;
                 });
             }
@@ -136,6 +140,7 @@ $.fn.extend({
                 ).insertAfter(last).find(
                     'dl'
                 ).initDl();
+                $(obj).parents().trigger('modified');
                 return false;
             });
 
@@ -150,7 +155,9 @@ $.fn.extend({
                     if (this.tagName != 'DD') return false;
                     $(this).remove();
                 });
+                var parents = $(obj).parents();
                 $(obj).remove();
+                parents.trigger('modified');
                 return false;
             });
 
@@ -200,6 +207,7 @@ $.fn.extend({
                         $(obj).text(this.value || 'value');
                         $(obj).show();
                         $(this).remove();
+                        $(obj).parents().trigger('modified');
                     } else if (e.which == 0) {
                         $(obj).show();
                         $(this).remove();
@@ -208,6 +216,7 @@ $.fn.extend({
                     $(obj).text(this.value || 'value');
                     $(obj).show();
                     $(this).remove();
+                    $(obj).parents().trigger('modified');
                 }).each(function() {
                     this.focus();
                     this.select();
