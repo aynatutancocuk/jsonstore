@@ -11,7 +11,7 @@
         <script type="text/javascript">
             $(document).ready(function() {
                 em = new EntryManager('http://localhost:8080/');
-                NO_ENTRIES = 5;
+                NO_ENTRIES = 10;
                 
                 // Load entries.
                 $('ul#entries').loadResults({}, NO_ENTRIES, 0);
@@ -20,12 +20,12 @@
                 $('#search').click(function() {
                     $('#key').html('');
                     $('<dl></dl>').initDl().appendTo('#key');
+
                     $(
                         '<a href="#" title="Search">' +
                         '<img src="images/icons/find.png" />' +
                         '</a>'
                     ).prependTo('#key dl').click(function() {
-                        $('#edit').html('');
                         var key = domToJson($('#key dl').get(0));
                         $('ul#entries').loadResults(key, NO_ENTRIES, 0);
                     });

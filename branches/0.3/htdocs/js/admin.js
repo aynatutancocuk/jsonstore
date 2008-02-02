@@ -210,7 +210,7 @@ $.fn.extend({
 
     entryEdit: function() {
         return this.each(function() {
-            $('#edit').html('').css('z-index', '50');
+            $('#edit').html('');
             $(this).initDl().appendTo('#edit');
 
             $(
@@ -241,11 +241,11 @@ $.fn.extend({
 
     entryRemove: function() {
         return this.each(function() {
-            var img = $(this).find('img').get(0);
-            $(img).attr('src', 'images/icons/time.png');
-            var entry = domToJson($('#edit dl').get(0));
-            var id = entry.__id__;
             if (confirm('Are you sure you want to delete the document "' + id + '"?')) {
+                var img = $(this).find('img').get(0);
+                $(img).attr('src', 'images/icons/time.png');
+                var entry = domToJson($('#edit dl').get(0));
+                var id = entry.__id__;
                 em.remove(id, {
                     success: function(entry) {
                         $(img).attr('src', 'images/icons/accept.png');
