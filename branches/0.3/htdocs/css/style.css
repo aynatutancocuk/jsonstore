@@ -11,8 +11,13 @@ body {
 }
 
 #edit {
-    clear: left;
-    width: 100%;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    padding: 24px;
+    z-index: -1;
 }
 
 img {
@@ -37,9 +42,17 @@ dd {
     margin-left: 18px;
 }
 
+ul {
+    margin: 0;
+}
+
 .action {
     color: #888;
     font-style: italic;
+}
+
+.nav {
+    padding: 0 3px;
 }
 
 #entries {
@@ -69,18 +82,19 @@ dd {
     width: 100%;
 }
 
-#entries .header, #entries .header a, #entries .footer {
+p.header, p.header a {
     background-color: #888;
     color: white;
+    margin: 0;
+    padding: 3px;
 }
 
-#entries .footer {
+p.footer, p.footer a {
     text-align: center;
-}
-
-#entries li.footer a {
-    display: inline;
+    background-color: #888;
     color: white;
+    margin: 0;
+    padding: 3px;
 }
 
 #header {
