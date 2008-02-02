@@ -11,9 +11,25 @@
         <script type="text/javascript">
             $(document).ready(function() {
                 em = new EntryManager('http://localhost:8080/');
+                NO_ENTRIES = 5;
                 
                 // Load entries.
-                $('ul#entries').loadResults({}, 10, 0);
+                $('ul#entries').loadResults({}, NO_ENTRIES, 0);
+
+                // Activate search interface.
+                $('#search').click(function() {
+                    $('#key').html('');
+                    $('<dl></dl>').initDl().appendTo('#key');
+                    $(
+                        '<a href="#" title="Search">' +
+                        '<img src="images/icons/find.png" />' +
+                        '</a>'
+                    ).prependTo('#key dl').click(function() {
+                        $('#edit').html('');
+                        var key = domToJson($('#key dl').get(0));
+                        $('ul#entries').loadResults(key, NO_ENTRIES, 0);
+                    });
+                });
 
                 $("#new").click(function() {
                     $('#edit').html('');
@@ -51,11 +67,13 @@
             <h1>JSONStore @ http://localhost:8080/</h1>
         </div>
         <div id="results">
-            <ul id="entries">
-                <li class="header"><a href="#" class="action" id="new">Add a new document</a></li>
-            </ul>
+            <p class="header"><a href="#" class="action" id="new">Add a new document</a></p>
+            <ul id="entries"></ul>
         </div>
-        <div id="search"></div>
+        <div id="search">
+            <p class="header"><a href="#" class="action" id="filter">Filter</a></p>
+            <div id="key"></div>
+        </div>
         <div id="edit"></div>
     </body>
 </html>

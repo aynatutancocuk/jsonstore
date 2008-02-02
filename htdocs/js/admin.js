@@ -210,7 +210,7 @@ $.fn.extend({
 
     entryEdit: function() {
         return this.each(function() {
-            $('#edit').html('');
+            $('#edit').html('').css('z-index', '50');
             $(this).initDl().appendTo('#edit');
 
             $(
@@ -251,11 +251,7 @@ $.fn.extend({
                         $(img).attr('src', 'images/icons/accept.png');
                         $('#edit dl').fadeOut('slow', function() {
                             $('#edit dl').remove();
-                        });
-                        $('ul#entries').find(
-                            'a:contains(' + id+ ')'
-                        ).parent().slideUp('slow', function() {
-                            $(this).remove();
+                            $('ul#entries').loadResults({}, NO_ENTRIES, 0);
                         });
                     },
                     error: function(entry) {
@@ -278,18 +274,8 @@ $.fn.extend({
                     $(img).attr('src', 'images/icons/accept.png');
                     $('#edit dl').fadeOut('slow', function() {
                         $('#edit dl').remove();
+                        $('ul#entries').loadResults({}, NO_ENTRIES, 0);
                     });
-                    if (!id) {
-                        $(
-                            '<li><a href="#" class="action" title="Edit this document">' + 
-                            entry.__id__ + 
-                            '</a></li>'
-                        ).hide().insertAfter(
-                            $('#new').parent()
-                        ).fadeIn('slow').find('a').click(function() {
-                            jsonToDom(entry).entryEdit();
-                        });
-                    }
                 },
                 error: function(entry) {
                     $(img).attr('src', 'images/icons/error.png');
@@ -332,12 +318,12 @@ $.fn.extend({
     loadResults: function(key, size, offset) {
         return this.each(function() {
             var obj = this;
-            $(obj).html('');
 
             em.search(key, {
                 size: size,
                 offset: offset,
                 success: function(entries, count) {
+                    $(obj).html('');
                     $.each(entries, function(i, entry) {
                         $(
                             '<li><a href="#" class="action" title="Edit this document">' + 
@@ -349,21 +335,25 @@ $.fn.extend({
                             jsonToDom(entry).entryEdit();
                         });
                     });
+                    range = (entries.length > 1) ?
+                            (offset + 1) + '&ndash;' + (offset + entries.length) :
+                            entries.length ? offset + 1 : 0;
+                    $('p.footer').remove();
                     $(
-                        '<li class="footer">' + 
-                        (offset + 1) + ' to ' + (offset + entries.length) + ' of ' + count +
-                        '</li>'
-                    ).appendTo(obj);
+                        '<p class="footer">' + 
+                        range + ' of ' + count +
+                        '</p>'
+                    ).insertAfter(obj);
                     if (offset > 0) 
                         $(
-                            '<a class="action" href="#"> &larr; </a> '
-                        ).prependTo('li.footer').click(function() {
+                            '<a class="action nav" href="#">&larr;</a> '
+                        ).prependTo('p.footer').click(function() {
                             $(obj).loadResults(key, size, offset-size);
                     });
                     if (offset + entries.length < count)
                         $(
-                            '<a class="action" href="#"> &rarr; </a>'
-                        ).appendTo('li.footer').click(function() {
+                            '<a class="action nav" href="#">&rarr;</a>'
+                        ).appendTo('p.footer').click(function() {
                             $(obj).loadResults(key, size, offset+size);
                     });
                 }
