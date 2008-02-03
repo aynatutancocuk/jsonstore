@@ -9,63 +9,6 @@
         <script type="text/javascript" src="js/rison.js"></script>
         <script type="text/javascript" src="js/jsonstore.js"></script>
         <script type="text/javascript" src="js/admin.js"></script>
-        <script type="text/javascript">
-            $(document).ready(function() {
-                JSONSTORE = 'http://localhost:8080/';
-                NO_ENTRIES = 5;
-                em = new EntryManager(JSONSTORE);
-                
-                // Load entries.
-                $('ul#entries').loadResults({}, NO_ENTRIES, 0);
-
-                // Activate search interface.
-                $('#search').click(function() {
-                    $('#key').html('');
-                    $('<dl></dl>').initDl().appendTo('#key');
-                    $(
-                        '<p class="footer">' + 
-                        '<a id="link" title="Link for this search">copy search</a>' +
-                        '</p>'
-                    ).appendTo('#key').find('#link').attr(
-                        'href', JSONSTORE + encodeURIComponent(rison.encode({}))
-                    );
-                }).bind('modified', function() {
-                    var key = domToJson($('#key dl').get(0));
-                    $('ul#entries').loadResults(key, NO_ENTRIES, 0);
-                    $('#link').attr(
-                        'href', JSONSTORE + encodeURIComponent(rison.encode(key))
-                    );
-                });
-
-                $("#new").click(function() {
-                    $('#edit').html('');
-                    $(
-                        '<dl>' + 
-                        '<dt>__id__</dt>' + 
-                        '<dd><a href="#" class="editable action">leave blank for auto-generated</a></dd>' + 
-                        '<dt>__updated__</dt>' + 
-                        '<dd><a href="#" class="editable action">leave blank for current time</a></dd>' + 
-                        '</dl>'
-                    ).initDl().appendTo('#edit');
-
-                    $(
-                        '<a href="#" title="Load JSON">' + 
-                        '<img src="images/icons/page_white_text.png" />' +
-                        '</a>'
-                    ).prependTo('#edit dl').click(function() {
-                        $(this).entryLoadJson();
-                    });
-
-                    $(
-                        '<a href="#" title="Save document">' + 
-                        '<img src="images/icons/database_save.png" />' + 
-                        '</a>'
-                    ).prependTo('#edit dl').click(function() {
-                        $(this).entrySave();
-                    });
-                    return false;
-                });
-            });
         </script>
         <link rel="stylesheet" type="text/css" href="css/style.css" />
     </head>
