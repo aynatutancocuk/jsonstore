@@ -19,6 +19,9 @@ This package contains a WSGI app implementing a REST store accessible through a 
       zip_safe=True,
       install_requires=[
           # -*- Extra requirements: -*-
+          'Paste',
+          'PasteScript',
+          'PasteDeploy',
           'WebOb',
           'simplejson',
           'uuid',
