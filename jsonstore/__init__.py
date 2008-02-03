@@ -1,7 +1,6 @@
 from datetime import datetime
 
 from jsonstore.store import JSONStore
-from jsonstore.middleware import MethodAuth
 from jsonstore.backends import EntryManager
 from jsonstore.operators import *
 

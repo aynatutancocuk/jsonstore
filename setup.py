@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '0.3a2'
+version = '0.3a4'
 
 setup(name='jsonstore',
       version=version,
@@ -16,7 +16,7 @@ This package contains a WSGI app implementing a REST store accessible through a 
       license='MIT',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       include_package_data=True,
-      zip_safe=True,
+      zip_safe=False,
       install_requires=[
           # -*- Extra requirements: -*-
           'Paste',
