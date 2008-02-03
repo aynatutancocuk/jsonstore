@@ -8,7 +8,7 @@ class JsonstoreTemplate(templates.Template):
     
     egg_plugins = ['jsonstore']
     _template_dir = 'paster_templates'
-    use_cheetah = True
+    use_cheetah = False
 
     def post(self, command, output_dir, vars):
         if command.verbose:
