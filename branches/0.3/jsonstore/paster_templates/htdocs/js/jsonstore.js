@@ -37,7 +37,7 @@ function EntryManager(url, common) {
 
     this.search = function(key, opts) {
         var url = this.url + encodeURIComponent(JSON.stringify(key)) +
-                  '?size=' + (opts.size || 10) +
+                  '?size=' + (opts.size == null ? 10 : opts.size) +
                   '&offset=' + (opts.offset || 0);
         json('GET', url, null, function(xml) {
             if (xml.status == 200) {
