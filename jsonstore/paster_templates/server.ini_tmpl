@@ -1,0 +1,15 @@
+[server:main]
+use = egg:Paste#http
+
+[composite:main]
+use = egg:Paste#cascade
+app1 = static
+app2 = store
+
+[app:static]
+use = egg:Paste#static
+document_root = %(here)s/htdocs
+
+[app:store]
+use = egg:jsonstore
+dsn = sqlite://%(here)s/store.db
