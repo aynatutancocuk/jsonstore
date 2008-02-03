@@ -59,10 +59,13 @@ class JSONStore(object):
 
         if jsonp:
             body = jsonp + '(' + body + ')'
+            content_type = 'text/javascript'
+        else:
+            content_type = 'application/json'
 
         return Response(
                 body=body,
-                content_type='application/json',
+                content_type=content_type,
                 charset='utf8',
                 headerlist=[('X-ITEMS', str(items)), ('etag', etag)])
 

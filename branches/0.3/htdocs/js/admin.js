@@ -203,13 +203,13 @@ $.fn.extend({
                     obj
                 ).keypress(function(e) {
                     // 13 is Enter, 0 is Esc.
-                    if (e.which == 13) {
+                    if (e.keyCode == 13) {
                         $(obj).text(this.value || 'value');
                         $(obj).show();
                         $(this).remove();
                         $(obj).parents().trigger('modified');
                         return false;
-                    } else if (e.which == 0) {
+                    } else if (e.keyCode == 27) {
                         $(obj).show();
                         $(this).remove();
                     }
@@ -234,10 +234,10 @@ $.fn.extend({
             $(this).initDl().appendTo('#edit');
 
             $(
-                '<a href="#" title="Load JSON">' + 
+                '<a href="#" title="Import JSON">' + 
                 '<img src="images/icons/page_white_text.png" />' +
                 '</a>'
-            ).prependTo('#edit dl').click(function() {
+            ).prependTo('#edit > dl').click(function() {
                 $(this).entryLoadJson();
                 return false;
             });
@@ -246,7 +246,7 @@ $.fn.extend({
                 '<a href="#" title="Delete document">' + 
                 '<img src="images/icons/database_delete.png" />' + 
                 '</a>'
-            ).prependTo('#edit dl').click(function() {
+            ).prependTo('#edit > dl').click(function() {
                 $(this).entryRemove();
                 return false;
             });
@@ -255,7 +255,7 @@ $.fn.extend({
                 '<a href="#" title="Save document">' + 
                 '<img src="images/icons/database_save.png" />' + 
                 '</a>'
-            ).prependTo('#edit dl').click(function() {
+            ).prependTo('#edit > dl').click(function() {
                 $(this).entrySave();
                 return false;
             });
@@ -264,17 +264,18 @@ $.fn.extend({
 
     entryRemove: function() {
         return this.each(function() {
+            var entry = domToJson($('#edit dl').get(0));
+            var id = entry.__id__;
             if (confirm('Are you sure you want to delete the document "' + id + '"?')) {
                 var img = $(this).find('img').get(0);
                 $(img).attr('src', 'images/icons/time.png');
-                var entry = domToJson($('#edit dl').get(0));
-                var id = entry.__id__;
                 em.remove(id, {
                     success: function(entry) {
                         $(img).attr('src', 'images/icons/accept.png');
                         $('#edit dl').fadeOut('slow', function() {
                             $('#edit dl').remove();
-                            $('ul#entries').loadResults({}, NO_ENTRIES, 0);
+                            var key = domToJson($('#key dl').get(0));
+                            $('ul#entries').loadResults(key, NO_ENTRIES, 0);
                         });
                     },
                     error: function(entry) {
@@ -297,7 +298,8 @@ $.fn.extend({
                     $(img).attr('src', 'images/icons/accept.png');
                     $('#edit dl').fadeOut('slow', function() {
                         $('#edit dl').remove();
-                        $('ul#entries').loadResults({}, NO_ENTRIES, 0);
+                        var key = domToJson($('#key dl').get(0));
+                        $('ul#entries').loadResults(key, NO_ENTRIES, 0);
                     });
                 },
                 error: function(entry) {
@@ -310,18 +312,18 @@ $.fn.extend({
     entryLoadJson: function() {
         return this.each(function() {
             $('#load').remove();
-            $('#edit dl').append(
+            $('#edit > dl').append(
                 '<div id="load"><textarea></textarea></div>'
-            );
+            ).find('textarea').focus();
 
             $(
-                '<a href="#" title="Load JSON">' + 
+                '<a href="#" title="Import JSON">' + 
                 '<img src="images/icons/page_white_get.png" />' + 
                 '</a>'
             ).appendTo('#load').click(function() {
                 var content = JSON.parse($('#load textarea').val());
                 $('#load').remove();
-                var entry = domToJson($('#edit dl').get(0));
+                var entry = domToJson($('#edit > dl').get(0));
                 for (attr in content) entry[attr] = content[attr];
                 if (!entry.__id__) entry.__id__ = 'leave blank for auto-generated';
                 if (!entry.__updated__) entry.__updated__ = 'leave blank for current time';
@@ -364,7 +366,7 @@ $.fn.extend({
                     range = (entries.length > 1) ?
                             (offset + 1) + '&ndash;' + (offset + entries.length) :
                             entries.length ? offset + 1 : 0;
-                    $('p.footer').remove();
+                    $('#results p.footer').remove();
                     $(
                         '<p class="footer">' + 
                         range + ' of ' + count +
@@ -373,14 +375,14 @@ $.fn.extend({
                     if (offset > 0) 
                         $(
                             '<a class="action nav" href="#">&larr;</a> '
-                        ).prependTo('p.footer').click(function() {
+                        ).prependTo('#results p.footer').click(function() {
                             $(obj).loadResults(key, size, offset-size);
                             return false;
                     });
                     if (offset + entries.length < count)
                         $(
                             '<a class="action nav" href="#">&rarr;</a>'
-                        ).appendTo('p.footer').click(function() {
+                        ).appendTo('#results p.footer').click(function() {
                             $(obj).loadResults(key, size, offset+size);
                             return false;
                     });
@@ -441,3 +443,63 @@ function parseValue(value) {
         return value;
     }
 }
+
+$(document).ready(function() {
+    JSONSTORE = 'http://localhost:8080/';
+    NO_ENTRIES = 5;
+    em = new EntryManager(JSONSTORE);
+    
+    // Load entries.
+    $('ul#entries').loadResults({}, NO_ENTRIES, 0);
+
+    // Activate search interface.
+    $('#search').click(function() {
+        $('#key').html('');
+        $('<dl></dl>').initDl().appendTo('#key');
+        $(
+            '<p class="footer">' + 
+            '<a id="link" title="Link for this search">copy search</a>' +
+            '</p>'
+        ).appendTo('#key').find('#link').attr(
+            'href', JSONSTORE + encodeURIComponent(rison.encode({})) + '?jsonp=loadResults'
+        );
+    }).bind('modified', function() {
+        var key = domToJson($('#key dl').get(0));
+        $('ul#entries').loadResults(key, NO_ENTRIES, 0);
+        $('#link').attr(
+            'href', JSONSTORE + encodeURIComponent(rison.encode(key)) + '?jsonp=loadResults'
+        );
+        return false;
+    });
+
+    $("#new").click(function() {
+        $('#edit').html('');
+        $(
+            '<dl>' + 
+            '<dt>__id__</dt>' + 
+            '<dd><a href="#" class="editable action">leave blank for auto-generated</a></dd>' + 
+            '<dt>__updated__</dt>' + 
+            '<dd><a href="#" class="editable action">leave blank for current time</a></dd>' + 
+            '</dl>'
+        ).initDl().appendTo('#edit');
+
+        $(
+            '<a href="#" title="Import JSON">' + 
+            '<img src="images/icons/page_white_text.png" />' +
+            '</a>'
+        ).prependTo('#edit > dl').click(function() {
+            $(this).entryLoadJson();
+            return false;
+        });
+
+        $(
+            '<a href="#" title="Save document">' + 
+            '<img src="images/icons/database_save.png" />' + 
+            '</a>'
+        ).prependTo('#edit dl').click(function() {
+            $(this).entrySave();
+            return false;
+        });
+        return false;
+    });
+});

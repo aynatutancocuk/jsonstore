@@ -157,7 +157,7 @@ class EntryManager(object):
                     leaf = Equal(leaf)
 
                 if isinstance(leaf, Exists):
-                    subquery.append("(position=%s AND (leaft NOTNULL OR leafi NOTNULL OR leafr NOTNULL))")
+                    subquery.append("(position=%s AND (leaft IS NOT NULL OR leafi IS NOT NULL OR leafr IS NOT NULL))")
                 elif isinstance(leaf.params[0], basestring):
                     subquery.append("(position=%%s AND leaft %s)" % str(leaf).replace('?', '%s'))
                 elif isinstance(leaf.params[0], float):
