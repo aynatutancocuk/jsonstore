@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import sys, os
 
-version = '0.3a4'
+version = '0.3a5'
 
 setup(name='jsonstore',
       version=version,
