@@ -70,7 +70,7 @@ class JSONStore(object):
                 headerlist=[('X-ITEMS', str(items)), ('etag', etag)])
 
     def HEAD(self, req):
-        response = GET(req)
+        response = self.GET(req)
         response.body = ''
         return response
 
