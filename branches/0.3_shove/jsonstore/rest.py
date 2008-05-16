@@ -12,8 +12,8 @@ from jsonstore import rison
 from jsonstore import operators
 
 
-def make_app(global_conf, dsn='sqlite://test.db', **kwargs):
-    return JSONStore(dsn)
+def make_app(global_conf, **kwargs):
+    return JSONStore(**kwargs)
 
 
 class DatetimeEncoder(JSONEncoder):
@@ -23,8 +23,8 @@ class DatetimeEncoder(JSONEncoder):
 
 
 class JSONStore(object):
-    def __init__(self, dsn):
-        self.em = EntryManager(dsn)
+    def __init__(self, **kwargs):
+        self.em = EntryManager(**kwargs)
 
     def __call__(self, environ, start_response):
         req = Request(environ)
