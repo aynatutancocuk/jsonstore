@@ -31,6 +31,7 @@ class EntryManager(object):
         self.index = index
         if not os.path.exists(self.index):
             self._create_table()
+            self.reindex()
 
     # Thread-safe connection manager. Conections are stored in the 
     # ``threading.local`` object, so they can be safely reused in the
@@ -72,17 +73,9 @@ class EntryManager(object):
 
         # Store entry.
         self.store[id_] = entry
-
-        # Index entry.
-        indices = [(id_, k, v) for (k, v) in flatten(entry) if k != '__id__']
-        self.conn.executemany("""
-            INSERT INTO flat (id, position, leaf)
-            VALUES (?, ?, ?);
-        """, indices)
-        self.conn.commit()
-
+        self.index_entry(entry)
         return entry
-        
+
     def delete(self, key):
         del self.store[key]
 
@@ -176,6 +169,21 @@ class EntryManager(object):
             curs = self.conn.execute(query, tuple(params))
             return [self.store[row[0]] for row in curs]
 
+    def index_entry(self, entry):
+        # Index entry.
+        indexes = [(entry['__id__'], k, v) for (k, v) in flatten(entry) if k != '__id__']
+        self.conn.executemany("""
+            INSERT INTO flat (id, position, leaf)
+            VALUES (?, ?, ?);
+        """, indexes)
+        self.conn.commit()
+
+    def reindex(self):
+        self.conn.execute("DELETE FROM flat;")
+        self.conn.commit()
+        for entry in self.store:
+            self.index_entry(self.store[entry])
+        
     def close(self):
         self.conn.close()
         del LOCAL.conns[self.index]
