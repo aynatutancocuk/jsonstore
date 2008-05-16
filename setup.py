@@ -30,7 +30,7 @@ This package contains a WSGI app implementing a REST store accessible through a 
       entry_points="""
       # -*- Entry points: -*-
       [paste.app_factory]
-      main = jsonstore.store:make_app
+      main = jsonstore.rest:make_app
 
       [paste.paster_create_template]
       jsonstore = jsonstore.template:JsonstoreTemplate

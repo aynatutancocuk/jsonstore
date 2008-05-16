@@ -7,7 +7,7 @@ from sha import sha
 from webob import Request, Response
 from simplejson import loads, dumps, JSONEncoder
 
-from jsonstore.backends import EntryManager
+from jsonstore.store import EntryManager
 from jsonstore import rison
 from jsonstore import operators
 
