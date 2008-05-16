@@ -25,11 +25,10 @@ def regexp(expr, item):
 
 
 class EntryManager(object):
-    def __init__(self, store='simple://', cache='simple://', **kwargs):
+    def __init__(self, store='simple://', cache='simple://', index='index.db', **kwargs):
         self.store = Shove(store, cache, **kwargs)
 
-        # XXX Change to something unique, f(cache, store).
-        self.index = 'index.db'
+        self.index = index
         if not os.path.exists(self.index):
             self._create_table()
 
