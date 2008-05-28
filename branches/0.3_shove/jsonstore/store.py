@@ -51,6 +51,7 @@ class EntryManager(object):
         self.conn.executescript("""
             CREATE TABLE flat (
                 id VARCHAR(255),
+                updated timestamp,
                 position CHAR(255),
                 leaf NUMERIC);
             CREATE INDEX position ON flat (position);
@@ -154,7 +155,7 @@ class EntryManager(object):
             query.append("(%s)" % " OR ".join(condition))
         if leaves:
             query.append("GROUP BY id HAVING COUNT(*)=%d" % leaves)
-        ##query.append("ORDER BY updated DESC")
+        query.append("ORDER BY updated DESC")
         if size is not None:
             query.append("LIMIT %s" % size)
         if offset:
@@ -171,10 +172,11 @@ class EntryManager(object):
 
     def index_entry(self, entry):
         # Index entry.
-        indexes = [(entry['__id__'], k, v) for (k, v) in flatten(entry) if k != '__id__']
+        indexes = [(entry['__id__'], entry['__updated__'], k, v)
+                for (k, v) in flatten(entry) if k != '__id__']
         self.conn.executemany("""
-            INSERT INTO flat (id, position, leaf)
-            VALUES (?, ?, ?);
+            INSERT INTO flat (id, updated, position, leaf)
+            VALUES (?, ?, ?, ?);
         """, indexes)
         self.conn.commit()
 
