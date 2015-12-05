@@ -1,0 +1,1 @@
+This package contains a WSGI app implementing an Atom store accessible through a JSON syntax.
